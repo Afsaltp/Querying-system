@@ -1,241 +1,153 @@
 """
-Graph API: Node operations, expansion, broken flow detection
-
-BROKEN FLOW DETECTION LOGIC:
-In a healthy OTC flow: Order → Delivery → Billing → Payment
-Broken = any node in the chain that has no downstream edge
-We classify by severity:
-  - CRITICAL: Delivered order with no billing (revenue leak)
-  - WARNING: Billed with no payment + overdue
-  - INFO: Open order with no delivery (might be new)
+Graph API helpers for generic OTC schema.
 """
-from graph.graph_store import GraphStore
-from typing import Optional
+from typing import Optional, Any
+from graph_store import GraphStore
 
-
-# Map frontend node type → color for visualization
 NODE_COLORS = {
-    'order': '#3B82F6',      # blue
-    'delivery': '#10B981',   # green
-    'billing': '#F59E0B',    # amber
-    'payment': '#8B5CF6',    # purple
-    'customer': '#EF4444',   # red
-    'product': '#06B6D4',    # cyan
-    'address': '#6B7280',    # gray
-    'journal': '#F97316',    # orange
-}
-
-NODE_ICONS = {
-    'order': '📦', 'delivery': '🚚', 'billing': '🧾',
-    'payment': '💳', 'customer': '👤', 'product': '🏷️',
+    "order": "#4f8ef7",
+    "delivery": "#00c4a0",
+    "billing": "#f59e0b",
+    "payment": "#10b981",
+    "customer": "#ef4444",
+    "product": "#a3e635",
 }
 
 
 class GraphAPI:
-    def __init__(self, store: GraphStore):
-        self.store = store
+    def __init__(self, db_path: str):
+        self.store = GraphStore(db_path)
 
-    def get_node(self, node_id: str, node_type: str) -> Optional[dict]:
-        """Get node attributes + its direct edges"""
-        attrs = self.store.get_node_attributes(node_type, node_id)
+    def _node_attrs(self, node_id: str, node_type: str) -> Optional[dict[str, Any]]:
+        lookup = {
+            "order": ("orders", "order_id"),
+            "delivery": ("deliveries", "delivery_id"),
+            "billing": ("billing_documents", "billing_id"),
+            "payment": ("payments", "payment_id"),
+            "customer": ("customers", "customer_id"),
+            "product": ("products", "product_id"),
+        }
+        if node_type not in lookup:
+            return None
+        table, pk = lookup[node_type]
+        rows = self.store.execute(f"SELECT * FROM {table} WHERE {pk}=? LIMIT 1", (node_id,))
+        return rows[0] if rows else None
+
+    def get_node(self, node_id: str, node_type: str) -> Optional[dict[str, Any]]:
+        attrs = self._node_attrs(node_id, node_type)
         if not attrs:
             return None
-
-        neighbors = self.store.get_neighbors(node_type, node_id)
-
+        edges = self.store.execute(
+            "SELECT from_type, from_id, relationship, to_type, to_id FROM edges WHERE "
+            "(from_type=? AND from_id=?) OR (to_type=? AND to_id=?)",
+            (node_type, node_id, node_type, node_id),
+        )
         return {
             "id": node_id,
             "type": node_type,
-            "color": NODE_COLORS.get(node_type, '#gray'),
-            "icon": NODE_ICONS.get(node_type, '●'),
+            "color": NODE_COLORS.get(node_type, "#64748b"),
             "attributes": attrs,
-            "edges": neighbors,
-            "edge_count": len(neighbors)
+            "edges": edges,
+            "edge_count": len(edges),
         }
 
-    def expand_node(self, node_id: str, node_type: str, depth: int = 1) -> dict:
+    def expand_node(self, node_id: str, node_type: str, depth: int = 2) -> dict[str, Any]:
+        depth = max(1, min(int(depth), 4))
+        sql = """
+        WITH RECURSIVE walk(ft, fi, rel, tt, ti, d) AS (
+            SELECT from_type, from_id, relationship, to_type, to_id, 1
+            FROM edges WHERE from_type=? AND from_id=?
+            UNION ALL
+            SELECT e.from_type, e.from_id, e.relationship, e.to_type, e.to_id, walk.d + 1
+            FROM edges e
+            JOIN walk ON e.from_type = walk.tt AND e.from_id = walk.ti
+            WHERE walk.d < ?
+        )
+        SELECT DISTINCT ft, fi, rel, tt, ti, d FROM walk ORDER BY d LIMIT 500
         """
-        Return a subgraph rooted at node_id up to `depth` hops.
-        Used for interactive 'expand' in the UI.
-        """
-        if depth > 4:
-            depth = 4  # cap to prevent runaway traversal
-
-        edges = self.store.traverse(node_type, node_id, depth)
-
-        # Collect unique node IDs to fetch attributes
-        node_refs = {f"{node_type}:{node_id}"}
-        for e in edges:
-            node_refs.add(f"{e['from_type']}:{e['from_id']}")
-            node_refs.add(f"{e['to_type']}:{e['to_id']}")
+        edge_rows = self.store.execute(sql, (node_type, node_id, depth))
+        refs = {f"{node_type}:{node_id}"}
+        for e in edge_rows:
+            refs.add(f"{e['ft']}:{e['fi']}")
+            refs.add(f"{e['tt']}:{e['ti']}")
 
         nodes = []
-        for ref in node_refs:
+        for ref in refs:
             ntype, nid = ref.split(":", 1)
-            attrs = self.store.get_node_attributes(ntype, nid)
-            nodes.append({
-                "id": nid,
-                "type": ntype,
-                "color": NODE_COLORS.get(ntype, '#94a3b8'),
-                "icon": NODE_ICONS.get(ntype, '●'),
-                "label": self._make_label(ntype, nid, attrs),
-                "attributes": attrs or {},
-            })
-
-        edge_list = [
-            {
-                "source": e['from_id'],
-                "target": e['to_id'],
-                "relationship": e['relationship'],
-                "depth": e['depth']
-            }
-            for e in edges
-        ]
-
-        return {
-            "root": {"id": node_id, "type": node_type},
-            "nodes": nodes,
-            "edges": edge_list,
-            "depth": depth
-        }
-
-    def get_full_graph(self) -> dict:
-        """
-        Return the full graph for initial visualization.
-        For large graphs: returns aggregated view (node type clusters).
-        Threshold: if > 500 nodes, return summary clusters instead.
-        """
-        counts = self.store.node_count()
-        total = sum(counts.values())
-
-        if total > 500:
-            return self._get_clustered_graph(counts)
-
-        return self._get_detailed_graph()
-
-    def _get_detailed_graph(self) -> dict:
-        """Full node-by-node graph"""
-        all_edges = self.store.execute("SELECT * FROM edges LIMIT 2000")
-
-        # Collect unique node IDs
-        node_refs = set()
-        for e in all_edges:
-            node_refs.add(f"{e['from_type']}:{e['from_id']}")
-            node_refs.add(f"{e['to_type']}:{e['to_id']}")
-
-        nodes = []
-        for ref in node_refs:
-            ntype, nid = ref.split(":", 1)
-            nodes.append({
-                "id": nid,
-                "type": ntype,
-                "color": NODE_COLORS.get(ntype, '#94a3b8'),
-                "label": f"{ntype.upper()[:3]}-{nid[-4:]}",
-            })
+            nodes.append(
+                {
+                    "id": nid,
+                    "type": ntype,
+                    "color": NODE_COLORS.get(ntype, "#64748b"),
+                    "attributes": self._node_attrs(nid, ntype) or {},
+                }
+            )
 
         edges = [
-            {"source": e['from_id'], "target": e['to_id'],
-             "relationship": e['relationship']}
-            for e in all_edges
+            {"source": e["fi"], "target": e["ti"], "relationship": e["rel"], "depth": e["d"]}
+            for e in edge_rows
+        ]
+        return {"root": {"id": node_id, "type": node_type}, "nodes": nodes, "edges": edges, "depth": depth}
+
+    def get_full_graph(self) -> dict[str, Any]:
+        edge_rows = self.store.execute(
+            "SELECT from_type, from_id, relationship, to_type, to_id FROM edges LIMIT 2000"
+        )
+        refs = set()
+        for e in edge_rows:
+            refs.add((e["from_type"], e["from_id"]))
+            refs.add((e["to_type"], e["to_id"]))
+        nodes = [{"id": nid, "type": ntype, "color": NODE_COLORS.get(ntype, "#64748b")} for ntype, nid in refs]
+        edges = [
+            {"source": e["from_id"], "target": e["to_id"], "relationship": e["relationship"]} for e in edge_rows
         ]
         return {"nodes": nodes, "edges": edges, "mode": "detailed"}
 
-    def _get_clustered_graph(self, counts: dict) -> dict:
-        """Aggregated cluster nodes for large graphs"""
-        nodes = [
-            {"id": ntype, "type": "cluster", "label": f"{ntype}\n({count})",
-             "color": NODE_COLORS.get(ntype.rstrip('s'), '#94a3b8'),
-             "size": min(count * 2, 80)}
-            for ntype, count in counts.items()
-        ]
-        edges = [
-            {"source": "orders", "target": "deliveries", "relationship": "FULFILLED_BY"},
-            {"source": "orders", "target": "billing_documents", "relationship": "BILLED_AS"},
-            {"source": "deliveries", "target": "billing_documents", "relationship": "INVOICED_BY"},
-            {"source": "billing_documents", "target": "payments", "relationship": "SETTLED_BY"},
-            {"source": "orders", "target": "customers", "relationship": "PLACED_BY"},
-        ]
-        return {"nodes": nodes, "edges": edges, "mode": "clustered"}
-
-    def detect_broken_flows(self) -> dict:
-        """
-        BROKEN FLOW DETECTION:
-        Scan for incomplete OTC chains and classify by severity.
-        """
-        critical, warnings, info = [], [], []
-
-        # CRITICAL: Delivered orders with no billing (revenue leak)
-        result = self.store.execute("""
-            SELECT o.order_id, o.customer_id, o.total_amount, o.order_date
+    def detect_broken_flows(self) -> dict[str, Any]:
+        critical = self.store.execute(
+            """
+            SELECT o.order_id, o.status, o.total_amount, o.currency
             FROM orders o
             LEFT JOIN billing_documents b ON o.order_id = b.order_id
-            WHERE o.status = 'DELIVERED' AND b.billing_id IS NULL
+            WHERE b.billing_id IS NULL AND UPPER(COALESCE(o.status, '')) NOT IN ('CANCELLED', 'OPEN')
             LIMIT 50
-        """)
-        for r in result:
-            critical.append({
-                "type": "MISSING_BILLING",
-                "severity": "CRITICAL",
-                "message": f"Order {r['order_id']} delivered but never billed (₹{r['total_amount']})",
-                "node": {"id": r['order_id'], "type": "order"},
-                "data": r
-            })
-
-        # WARNING: Overdue billings with no payment
-        result = self.store.execute("""
-            SELECT b.billing_id, b.customer_id, b.amount, b.due_date
+            """
+        )
+        warnings = self.store.execute(
+            """
+            SELECT b.billing_id, b.amount, b.currency, b.status
             FROM billing_documents b
             LEFT JOIN payments p ON b.billing_id = p.billing_id
-            WHERE b.status = 'OVERDUE' AND p.payment_id IS NULL
+            WHERE p.payment_id IS NULL AND UPPER(COALESCE(b.status, '')) IN ('OVERDUE', 'OPEN')
             LIMIT 50
-        """)
-        for r in result:
-            warnings.append({
-                "type": "UNPAID_OVERDUE",
-                "severity": "WARNING",
-                "message": f"Billing {r['billing_id']} overdue since {r['due_date']} (₹{r['amount']})",
-                "node": {"id": r['billing_id'], "type": "billing"},
-                "data": r
-            })
-
-        # INFO: Orders confirmed but no delivery
-        result = self.store.execute("""
-            SELECT o.order_id, o.order_date, o.status
-            FROM orders o
-            LEFT JOIN deliveries d ON o.order_id = d.order_id
-            WHERE o.status = 'CONFIRMED' AND d.delivery_id IS NULL
-            LIMIT 50
-        """)
-        for r in result:
-            info.append({
-                "type": "NO_DELIVERY",
-                "severity": "INFO",
-                "message": f"Order {r['order_id']} confirmed but no delivery created",
-                "node": {"id": r['order_id'], "type": "order"},
-                "data": r
-            })
-
+            """
+        )
         return {
-            "critical": critical,
-            "warnings": warnings,
-            "info": info,
+            "critical": [
+                {
+                    "type": "DELIVERED_NOT_BILLED",
+                    "severity": "CRITICAL",
+                    "message": f"Order {r['order_id']} has no billing document.",
+                    "node": {"id": r["order_id"], "type": "order"},
+                    "data": r,
+                }
+                for r in critical
+            ],
+            "warnings": [
+                {
+                    "type": "BILLING_NOT_SETTLED",
+                    "severity": "WARNING",
+                    "message": f"Billing {r['billing_id']} has no payment record.",
+                    "node": {"id": r["billing_id"], "type": "billing"},
+                    "data": r,
+                }
+                for r in warnings
+            ],
+            "info": [],
             "summary": {
                 "critical_count": len(critical),
                 "warning_count": len(warnings),
-                "info_count": len(info),
-                "total_broken": len(critical) + len(warnings) + len(info)
-            }
+                "info_count": 0,
+                "total_broken": len(critical) + len(warnings),
+            },
         }
-
-    def _make_label(self, node_type: str, node_id: str, attrs: Optional[dict]) -> str:
-        if not attrs:
-            return node_id
-        label_fields = {
-            'customer': 'name', 'product': 'name',
-            'order': 'status', 'delivery': 'status',
-            'billing': 'status', 'payment': 'method',
-        }
-        field = label_fields.get(node_type)
-        if field and field in attrs:
-            return f"{node_id}\n[{attrs[field]}]"
-        return node_id

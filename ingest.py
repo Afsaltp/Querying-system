@@ -10,21 +10,20 @@ DESIGN DECISIONS:
 
 RUN: python pipeline/ingest.py --data-dir data/
 """
-import pandas as pd
+import pandas as pd  # type: ignore
 import sqlite3
 import json
 import argparse
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from graph.graph_store import GraphStore
+from graph_store import GraphStore  # type: ignore
+from typing import Any
 
 
 class OTCIngestionPipeline:
     def __init__(self, db_path: str):
         self.store = GraphStore(db_path)
-        self.stats = {"nodes": {}, "edges": 0, "warnings": []}
+        self.stats: dict[str, Any] = {"nodes": {}, "edges": 0, "warnings": []}
 
     # ─── CLEANING UTILITIES ──────────────────────────────────────────────────
 
@@ -166,7 +165,7 @@ class OTCIngestionPipeline:
         - Broken flows become visible via the broken-flows API
         """
         print("\n  Building graph edges...")
-        edge_count = 0
+        edge_count: int = 0
 
         # ORDER → CUSTOMER (PLACED_BY)
         orders = self.store.execute("SELECT order_id, customer_id FROM orders WHERE customer_id IS NOT NULL")
@@ -174,7 +173,7 @@ class OTCIngestionPipeline:
             exists = self.store.execute("SELECT 1 FROM customers WHERE customer_id=?", (r['customer_id'],))
             if exists:
                 self.store.add_edge('order', r['order_id'], 'PLACED_BY', 'customer', r['customer_id'])
-                edge_count += 1
+                edge_count += 1  # type: ignore
             else:
                 self.stats["warnings"].append(f"Order {r['order_id']} has unknown customer {r['customer_id']}")
 
@@ -182,31 +181,31 @@ class OTCIngestionPipeline:
         deliveries = self.store.execute("SELECT delivery_id, order_id FROM deliveries WHERE order_id IS NOT NULL")
         for r in deliveries:
             self.store.add_edge('order', r['order_id'], 'FULFILLED_BY', 'delivery', r['delivery_id'])
-            edge_count += 1
+            edge_count += 1  # type: ignore
 
         # ORDER → BILLING (BILLED_AS)
         billings = self.store.execute("SELECT billing_id, order_id FROM billing_documents WHERE order_id IS NOT NULL")
         for r in billings:
             self.store.add_edge('order', r['order_id'], 'BILLED_AS', 'billing', r['billing_id'])
-            edge_count += 1
+            edge_count += 1  # type: ignore
 
         # DELIVERY → BILLING (INVOICED_BY)
         billings = self.store.execute("SELECT billing_id, delivery_id FROM billing_documents WHERE delivery_id IS NOT NULL")
         for r in billings:
             self.store.add_edge('delivery', r['delivery_id'], 'INVOICED_BY', 'billing', r['billing_id'])
-            edge_count += 1
+            edge_count += 1  # type: ignore
 
         # BILLING → PAYMENT (SETTLED_BY)
         payments = self.store.execute("SELECT payment_id, billing_id FROM payments WHERE billing_id IS NOT NULL")
         for r in payments:
             self.store.add_edge('billing', r['billing_id'], 'SETTLED_BY', 'payment', r['payment_id'])
-            edge_count += 1
+            edge_count += 1  # type: ignore
 
         # BILLING → CUSTOMER (BILLED_TO)
         billings = self.store.execute("SELECT billing_id, customer_id FROM billing_documents WHERE customer_id IS NOT NULL")
         for r in billings:
             self.store.add_edge('billing', r['billing_id'], 'BILLED_TO', 'customer', r['customer_id'])
-            edge_count += 1
+            edge_count += 1  # type: ignore
 
         self.stats["edges"] = edge_count
         print(f"  ✓ Created {edge_count} edges")

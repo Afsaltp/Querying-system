@@ -1,54 +1,70 @@
 """
-Order-to-Cash Graph Query System - FastAPI Backend
-Architecture: FastAPI + SQLite (hybrid relational+graph) + Groq LLM
+OTC Graph System — FastAPI Backend
+All imports are flat (same folder). No subfolders needed.
+Run: uvicorn main:app --reload --port 8000
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
-import uvicorn
+import sqlite3, os, uvicorn
 
-from api.query_engine import QueryEngine
-from api.graph_api import GraphAPI
-from graph.graph_store import GraphStore
+# ── DB PATH ──────────────────────────────────────────────────────────────────
+# Put otc.db in same folder as this file, OR set DB_PATH env variable
+DB_PATH = os.getenv("DB_PATH", "otc.db")
+if not os.path.exists(DB_PATH):
+    # try data subfolder
+    DB_PATH = os.path.join("data", "otc.db")
 
-app = FastAPI(title="OTC Graph Query System", version="1.0.0")
-
+app = FastAPI(title="SAP OTC Graph Query System", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize core components
-graph_store = GraphStore("data/otc.db")
-query_engine = QueryEngine(graph_store)
-graph_api = GraphAPI(graph_store)
+# Lazy-loaded singletons
+_query_engine = None
+_graph_api = None
+
+def get_query_engine():
+    global _query_engine
+    if _query_engine is None:
+        from sap_query_engine import SAPQueryEngine   # flat import
+        _query_engine = SAPQueryEngine(DB_PATH)
+    return _query_engine
+
+def get_graph_api():
+    global _graph_api
+    if _graph_api is None:
+        from sap_graph_api import SAPGraphAPI         # flat import
+        _graph_api = SAPGraphAPI(DB_PATH)
+    return _graph_api
 
 
+# ── REQUEST MODELS ────────────────────────────────────────────────────────────
 class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str] = "default"
-
 
 class NodeRequest(BaseModel):
     node_id: str
     node_type: str
 
-
 class ExpandRequest(BaseModel):
     node_id: str
     node_type: str
-    depth: int = 1
+    depth: int = 2
 
 
+# ── ROUTES ────────────────────────────────────────────────────────────────────
 @app.post("/query")
-async def query(req: QueryRequest):
-    """Natural language query → SQL/Graph → Grounded response"""
+async def query_endpoint(req: QueryRequest):
     try:
-        result = await query_engine.process(req.query, req.session_id)
+        result = await get_query_engine().process(req.query, req.session_id)
         return JSONResponse(result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -56,49 +72,57 @@ async def query(req: QueryRequest):
 
 @app.post("/graph/node")
 async def get_node(req: NodeRequest):
-    """Get single node with its direct relationships"""
     try:
-        node = graph_api.get_node(req.node_id, req.node_type)
+        node = get_graph_api().get_node(req.node_id, req.node_type)
         if not node:
             raise HTTPException(status_code=404, detail="Node not found")
         return JSONResponse(node)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/graph/expand")
 async def expand_node(req: ExpandRequest):
-    """Multi-hop graph expansion from a node"""
     try:
-        subgraph = graph_api.expand_node(req.node_id, req.node_type, req.depth)
-        return JSONResponse(subgraph)
+        result = get_graph_api().expand_node(req.node_id, req.node_type, req.depth)
+        return JSONResponse(result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/graph/full")
-async def get_full_graph():
-    """Return full graph for initial visualization"""
+async def full_graph():
     try:
-        graph = graph_api.get_full_graph()
-        return JSONResponse(graph)
+        return JSONResponse(get_graph_api().get_full_graph())
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/graph/broken-flows")
-async def get_broken_flows():
-    """Detect incomplete Order-to-Cash flows"""
+async def broken_flows():
     try:
-        broken = graph_api.detect_broken_flows()
-        return JSONResponse(broken)
+        return JSONResponse(get_graph_api().detect_broken_flows())
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "nodes": graph_store.node_count()}
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        counts = {}
+        for t in ["sales_order_headers", "billing_documents",
+                  "payments_ar", "business_partners", "edges"]:
+            try:
+                counts[t] = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+            except:
+                counts[t] = 0
+        conn.close()
+        return {"status": "ok", "db": DB_PATH, "counts": counts}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 
 if __name__ == "__main__":

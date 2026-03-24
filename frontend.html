@@ -3,1053 +3,588 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OTC Graph Intelligence</title>
+<title>SAP OTC Graph Intelligence</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+:root {
+  --bg:#07111f; --s1:#0d1b2e; --s2:#132440; --b:#1a3050;
+  --a:#3d8bff; --a2:#00d4a8; --warn:#f5a623; --err:#ff4d4d; --pur:#a78bfa;
+  --t:#d4e5f7; --m:#4a6f94; --fm:'IBM Plex Mono',monospace; --ff:'Inter',sans-serif;
+  --ord:#3d8bff; --bil:#f5a623; --pay:#a78bfa; --jrn:#00d4a8;
+  --cus:#ff4d4d; --del:#22c55e; --mat:#86efac; --plt:#94a3b8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ff);background:var(--bg);color:var(--t);height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
-  :root {
-    --bg: #0a0f1a;
-    --surface: #111827;
-    --surface2: #1a2235;
-    --border: #1e2d47;
-    --accent: #3b82f6;
-    --accent2: #06b6d4;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --purple: #8b5cf6;
-    --text: #e2e8f0;
-    --muted: #64748b;
-    --font-mono: 'JetBrains Mono', monospace;
-    --font-sans: 'Space Grotesk', sans-serif;
+/* HEADER */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:46px;background:var(--s1);border-bottom:1px solid var(--b);flex-shrink:0}
+.logo{font-family:var(--fm);font-size:11px;font-weight:500;color:var(--a);letter-spacing:3px}
+.bc{font-family:var(--fm);font-size:11px;color:var(--m)}.bc b{color:var(--t);font-weight:400}
+.hdr-r{display:flex;gap:8px;align-items:center}
+.pill{padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--fm);border:1px solid;cursor:default}
+.pill-b{background:rgba(61,139,255,.1);border-color:var(--a);color:var(--a)}
+.pill-g{background:rgba(0,212,168,.1);border-color:var(--a2);color:var(--a2)}
+.pill-r{background:rgba(255,77,77,.1);border-color:var(--err);color:var(--err)}
+.hbtn{padding:5px 10px;border-radius:4px;border:1px solid var(--b);background:var(--s2);color:var(--t);font-family:var(--ff);font-size:11px;cursor:pointer;transition:.12s}
+.hbtn:hover{border-color:var(--warn);color:var(--warn)}
 
-    --node-order: #3b82f6;
-    --node-delivery: #10b981;
-    --node-billing: #f59e0b;
-    --node-payment: #8b5cf6;
-    --node-customer: #ef4444;
-    --node-product: #06b6d4;
-  }
+/* LAYOUT */
+.main{display:flex;flex:1;overflow:hidden}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* SIDEBAR */
+.sb{width:200px;background:var(--s1);border-right:1px solid var(--b);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
+.sbs{padding:11px 11px 9px;border-bottom:1px solid var(--b)}
+.sbt{font-size:9px;letter-spacing:2px;color:var(--m);text-transform:uppercase;margin-bottom:8px;font-family:var(--fm)}
+.leg-item{display:flex;align-items:center;gap:7px;padding:4px 5px;border-radius:4px;cursor:pointer;font-size:11px;transition:.1s}
+.leg-item:hover{background:var(--s2)}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.sc{background:var(--s2);border:1px solid var(--b);border-radius:6px;padding:7px;text-align:center}
+.sv{font-size:20px;font-weight:600;font-family:var(--fm);color:var(--a)}
+.sl{font-size:8px;color:var(--m);text-transform:uppercase;letter-spacing:1px;margin-top:1px}
+.sbtn-g{display:flex;flex-direction:column;gap:4px}
+.sbtn{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--ff);border:1px solid var(--b);background:var(--s2);color:var(--t);transition:.1s;width:100%;text-align:left}
+.sbtn:hover{border-color:var(--a);color:var(--a)}
+.status-bar{padding:8px 11px;font-size:10px;font-family:var(--fm);color:var(--m);border-bottom:1px solid var(--b)}
+.status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;background:var(--err)}
+.status-dot.ok{background:var(--a2);box-shadow:0 0 5px var(--a2)}
 
-  body {
-    font-family: var(--font-sans);
-    background: var(--bg);
-    color: var(--text);
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
+/* GRAPH */
+.ga{flex:1;position:relative;overflow:hidden;background:var(--bg)}
+.ga::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(26,48,80,.35) 1px,transparent 1px),linear-gradient(90deg,rgba(26,48,80,.35) 1px,transparent 1px);background-size:34px 34px;pointer-events:none}
+#gsvg{width:100%;height:100%;cursor:grab}
+#gsvg:active{cursor:grabbing}
+.gc{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px}
+.cbtn{width:28px;height:28px;border-radius:4px;background:var(--s1);border:1px solid var(--b);color:var(--t);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:.1s}
+.cbtn:hover{border-color:var(--a);color:var(--a)}
 
-  /* ── HEADER ── */
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    height: 52px;
-    flex-shrink: 0;
-    z-index: 100;
-  }
+/* TOOLTIP */
+.tt{position:absolute;background:var(--s1);border:1px solid var(--b);border-radius:8px;padding:10px 12px;min-width:180px;max-width:260px;font-size:11px;pointer-events:none;opacity:0;transition:opacity .12s;z-index:200;box-shadow:0 6px 24px rgba(0,0,0,.6)}
+.tt.show{opacity:1}
+.tt-type{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--m);margin-bottom:3px;font-family:var(--fm)}
+.tt-id{font-weight:600;font-family:var(--fm);font-size:12px;margin-bottom:6px}
+.tt-row{display:flex;justify-content:space-between;gap:8px;margin:2px 0}
+.tt-k{color:var(--m);font-size:10px}.tt-v{color:var(--t);font-family:var(--fm);font-size:10px;text-align:right;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  .header-left { display: flex; align-items: center; gap: 12px; }
+/* RESULTS PANEL */
+.rb{position:absolute;bottom:0;left:200px;right:340px;background:var(--s1);border-top:1px solid var(--b);max-height:0;overflow:hidden;transition:max-height .28s ease;z-index:50}
+.rb.open{max-height:190px}
+.rbi{overflow:auto;max-height:190px;padding:8px 12px;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
+.rbc{position:absolute;top:5px;right:7px;background:none;border:none;color:var(--m);cursor:pointer;font-size:16px;line-height:1;z-index:1}
+table{width:100%;border-collapse:collapse;font-size:10px;font-family:var(--fm)}
+th{padding:3px 6px;text-align:left;color:var(--m);border-bottom:1px solid var(--b);white-space:nowrap;font-weight:500}
+td{padding:3px 6px;border-bottom:1px solid rgba(26,48,80,.4);white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+tr:hover td{background:var(--s2)}
 
-  .logo {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--accent);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
+/* CHAT */
+.cp{width:340px;background:var(--s1);border-left:1px solid var(--b);display:flex;flex-direction:column;flex-shrink:0}
+.ch{padding:11px 13px;border-bottom:1px solid var(--b);display:flex;align-items:center;gap:9px}
+.chi{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.ct{font-weight:600;font-size:13px}.cs{font-size:10px;color:var(--m);font-family:var(--fm)}
+.cdot{width:7px;height:7px;border-radius:50%;background:var(--a2);margin-left:auto;box-shadow:0 0 6px var(--a2);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.cm{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
+.msg{display:flex;gap:7px;animation:si .18s ease}
+@keyframes si{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.msg.u{flex-direction:row-reverse}
+.mav{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;background:var(--s2);border:1px solid var(--b)}
+.msg.u .mav{background:linear-gradient(135deg,var(--a),var(--pur,#a78bfa))}
+.mb{display:flex;flex-direction:column;gap:3px;max-width:calc(100% - 34px)}
+.mn{font-size:9px;color:var(--m);font-family:var(--fm)}
+.msg.u .mn{text-align:right}
+.bub{padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.55}
+.msg.u .bub{background:var(--a);color:#fff;border-radius:8px 2px 8px 8px}
+.msg.ai .bub{background:var(--s2);border:1px solid var(--b);border-radius:2px 8px 8px 8px}
+.sql-blk{margin-top:4px;background:var(--bg);border:1px solid var(--b);border-radius:4px;padding:6px 8px;font-family:var(--fm);font-size:9px;color:var(--a2);overflow-x:auto;white-space:pre;max-height:70px}
+.sql-lbl{font-size:8px;color:var(--m);margin-bottom:2px;letter-spacing:1px;font-family:var(--fm)}
+.rbadge{display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:rgba(0,212,168,.07);border:1px solid rgba(0,212,168,.2);border-radius:3px;padding:2px 5px;font-size:9px;color:var(--a2);font-family:var(--fm);cursor:pointer}
+.typing{display:flex;gap:3px;align-items:center;padding:2px 0}
+.td{width:5px;height:5px;border-radius:50%;background:var(--m);animation:bounce 1.2s infinite}
+.td:nth-child(2){animation-delay:.2s}.td:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(1)}40%{transform:scale(1.5)}}
+.sugg{padding:6px 12px;display:flex;flex-wrap:wrap;gap:4px;border-top:1px solid var(--b)}
+.sug{padding:3px 8px;background:var(--s2);border:1px solid var(--b);border-radius:20px;font-size:10px;cursor:pointer;transition:.1s;white-space:nowrap}
+.sug:hover{border-color:var(--a);color:var(--a)}
+.cia{padding:9px 12px;border-top:1px solid var(--b);display:flex;gap:6px;align-items:flex-end}
+.ci{flex:1;background:var(--s2);border:1px solid var(--b);border-radius:8px;padding:8px 10px;color:var(--t);font-family:var(--ff);font-size:12px;resize:none;outline:none;min-height:36px;max-height:80px;line-height:1.4;transition:border-color .1s}
+.ci:focus{border-color:var(--a)}.ci::placeholder{color:var(--m)}
+.sndbtn{width:34px;height:34px;border-radius:8px;background:var(--a);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:.12s;flex-shrink:0;color:#fff}
+.sndbtn:hover{background:#2d7aee;transform:scale(1.04)}.sndbtn:disabled{opacity:.4;cursor:not-allowed;transform:none}
 
-  .breadcrumb {
-    font-size: 12px;
-    color: var(--muted);
-    font-family: var(--font-mono);
-  }
-  .breadcrumb span { color: var(--text); }
-
-  .header-right { display: flex; gap: 8px; align-items: center; }
-
-  .badge {
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-family: var(--font-mono);
-    border: 1px solid;
-  }
-  .badge-blue { background: rgba(59,130,246,0.1); border-color: var(--accent); color: var(--accent); }
-  .badge-green { background: rgba(16,185,129,0.1); border-color: var(--success); color: var(--success); }
-
-  /* ── MAIN LAYOUT ── */
-  .main { display: flex; flex: 1; overflow: hidden; }
-
-  /* ── LEFT PANEL: Controls ── */
-  .sidebar {
-    width: 220px;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    overflow-y: auto;
-  }
-
-  .sidebar-section { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
-  .sidebar-title { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
-
-  .legend-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 5px 6px; border-radius: 6px; cursor: pointer;
-    font-size: 12px; transition: background 0.15s;
-  }
-  .legend-item:hover { background: var(--surface2); }
-  .legend-item.active { background: var(--surface2); }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-
-  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .stat-card {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px;
-    text-align: center;
-  }
-  .stat-value { font-size: 20px; font-weight: 700; font-family: var(--font-mono); color: var(--accent); }
-  .stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
-
-  .btn-group { display: flex; flex-direction: column; gap: 6px; }
-
-  .btn {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 10px; border-radius: 6px; cursor: pointer;
-    font-size: 12px; font-family: var(--font-sans);
-    border: 1px solid var(--border); background: var(--surface2);
-    color: var(--text); transition: all 0.15s; width: 100%;
-  }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn.active { border-color: var(--accent); background: rgba(59,130,246,0.1); color: var(--accent); }
-  .btn .icon { font-size: 14px; }
-
-  /* ── CENTER: Graph Canvas ── */
-  .graph-area {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-    background: var(--bg);
-    background-image:
-      radial-gradient(circle at 20% 20%, rgba(59,130,246,0.03) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(6,182,212,0.03) 0%, transparent 50%);
-  }
-
-  .graph-area::before {
-    content: '';
-    position: absolute; inset: 0;
-    background-image:
-      linear-gradient(var(--border) 1px, transparent 1px),
-      linear-gradient(90deg, var(--border) 1px, transparent 1px);
-    background-size: 40px 40px;
-    opacity: 0.3;
-    pointer-events: none;
-  }
-
-  #graph-svg { width: 100%; height: 100%; cursor: grab; }
-  #graph-svg:active { cursor: grabbing; }
-
-  .graph-controls {
-    position: absolute; bottom: 16px; right: 16px;
-    display: flex; flex-direction: column; gap: 4px;
-  }
-  .ctrl-btn {
-    width: 32px; height: 32px; border-radius: 6px;
-    background: var(--surface); border: 1px solid var(--border);
-    color: var(--text); cursor: pointer; font-size: 16px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
-  }
-  .ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-  .broken-badge {
-    position: absolute; top: 12px; left: 12px;
-    background: rgba(239,68,68,0.15); border: 1px solid var(--danger);
-    border-radius: 8px; padding: 6px 10px;
-    font-size: 11px; color: var(--danger); cursor: pointer;
-    display: none; align-items: center; gap: 6px;
-    font-family: var(--font-mono);
-  }
-  .broken-badge.show { display: flex; }
-
-  /* ── NODE TOOLTIP ── */
-  .tooltip {
-    position: absolute;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
-    min-width: 200px; max-width: 300px;
-    font-size: 12px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s;
-    z-index: 200;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  }
-  .tooltip.show { opacity: 1; }
-  .tooltip-type {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
-    color: var(--muted); margin-bottom: 4px; font-family: var(--font-mono);
-  }
-  .tooltip-id { font-weight: 600; font-family: var(--font-mono); font-size: 13px; margin-bottom: 8px; }
-  .tooltip-attrs { display: flex; flex-direction: column; gap: 3px; }
-  .tooltip-row { display: flex; justify-content: space-between; gap: 8px; }
-  .tooltip-key { color: var(--muted); }
-  .tooltip-val { color: var(--text); text-align: right; font-family: var(--font-mono); font-size: 11px; }
-
-  /* ── RIGHT PANEL: Chat ── */
-  .chat-panel {
-    width: 360px;
-    background: var(--surface);
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-  }
-
-  .chat-header {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .chat-header-icon {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px;
-  }
-  .chat-title { font-weight: 600; font-size: 14px; }
-  .chat-subtitle { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
-
-  .status-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--success); margin-left: auto;
-    box-shadow: 0 0 6px var(--success);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-  .chat-messages {
-    flex: 1; overflow-y: auto; padding: 16px;
-    display: flex; flex-direction: column; gap: 12px;
-    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
-  }
-
-  .msg {
-    display: flex; gap: 8px; max-width: 100%;
-    animation: slideIn 0.2s ease;
-  }
-  @keyframes slideIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-
-  .msg.user { flex-direction: row-reverse; }
-  .msg-avatar {
-    width: 28px; height: 28px; border-radius: 7px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; flex-shrink: 0;
-    background: var(--surface2); border: 1px solid var(--border);
-  }
-  .msg.user .msg-avatar { background: linear-gradient(135deg, var(--accent), var(--purple)); }
-
-  .msg-body { display: flex; flex-direction: column; gap: 4px; max-width: calc(100% - 40px); }
-  .msg-name { font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
-  .msg.user .msg-name { text-align: right; }
-
-  .msg-bubble {
-    padding: 10px 12px; border-radius: 10px;
-    font-size: 13px; line-height: 1.5;
-  }
-  .msg.user .msg-bubble {
-    background: var(--accent);
-    color: white;
-    border-radius: 10px 2px 10px 10px;
-  }
-  .msg.ai .msg-bubble {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 2px 10px 10px 10px;
-  }
-
-  .msg-sql {
-    margin-top: 6px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--accent2);
-    overflow-x: auto;
-    white-space: pre;
-    cursor: pointer;
-  }
-  .msg-sql-label { font-size: 9px; color: var(--muted); margin-bottom: 4px; letter-spacing: 1px; }
-
-  .msg-results-badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    margin-top: 4px;
-    background: rgba(16,185,129,0.1);
-    border: 1px solid rgba(16,185,129,0.3);
-    border-radius: 4px; padding: 2px 6px;
-    font-size: 10px; color: var(--success);
-    font-family: var(--font-mono); cursor: pointer;
-  }
-
-  .typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
-  .typing-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--muted);
-    animation: bounce 1.2s infinite;
-  }
-  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes bounce { 0%,80%,100%{transform:scale(1)} 40%{transform:scale(1.4)} }
-
-  /* ── SUGGESTIONS ── */
-  .suggestions {
-    padding: 8px 16px;
-    display: flex; flex-wrap: wrap; gap: 6px;
-    border-top: 1px solid var(--border);
-  }
-  .suggestion {
-    padding: 4px 10px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .suggestion:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* ── CHAT INPUT ── */
-  .chat-input-area {
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-    display: flex; gap: 8px; align-items: flex-end;
-  }
-
-  .chat-input {
-    flex: 1; background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 12px;
-    color: var(--text); font-family: var(--font-sans);
-    font-size: 13px; resize: none; outline: none;
-    min-height: 40px; max-height: 100px;
-    line-height: 1.4;
-    transition: border-color 0.15s;
-  }
-  .chat-input:focus { border-color: var(--accent); }
-  .chat-input::placeholder { color: var(--muted); }
-
-  .send-btn {
-    width: 38px; height: 38px; border-radius: 10px;
-    background: var(--accent);
-    border: none; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px; transition: all 0.15s; flex-shrink: 0;
-  }
-  .send-btn:hover { background: #2563eb; transform: scale(1.05); }
-  .send-btn:active { transform: scale(0.97); }
-  .send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-  /* ── RESULTS PANEL (EXPANDABLE) ── */
-  .results-panel {
-    position: absolute; bottom: 0; left: 220px; right: 360px;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    max-height: 0; overflow: hidden;
-    transition: max-height 0.3s ease;
-    z-index: 50;
-  }
-  .results-panel.open { max-height: 220px; }
-  .results-inner { overflow: auto; max-height: 220px; padding: 12px 16px; }
-  .results-close {
-    position: absolute; top: 8px; right: 8px;
-    background: none; border: none; color: var(--muted);
-    cursor: pointer; font-size: 18px;
-  }
-
-  table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--font-mono); }
-  th { padding: 4px 8px; text-align: left; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; white-space: nowrap; }
-  td { padding: 4px 8px; border-bottom: 1px solid rgba(30,45,71,0.5); white-space: nowrap; }
-  tr:hover td { background: var(--surface2); }
-
-  /* ── BROKEN FLOW MODAL ── */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    z-index: 500; display: none; align-items: center; justify-content: center;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; width: 600px; max-height: 80vh;
-    overflow-y: auto; padding: 20px;
-  }
-  .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-  .broken-item {
-    padding: 10px 12px; border-radius: 8px; margin-bottom: 8px;
-    border-left: 3px solid;
-  }
-  .broken-item.critical { background: rgba(239,68,68,0.08); border-color: var(--danger); }
-  .broken-item.warning { background: rgba(245,158,11,0.08); border-color: var(--warning); }
-  .broken-item.info { background: rgba(59,130,246,0.08); border-color: var(--accent); }
-  .broken-sev { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-family: var(--font-mono); margin-bottom: 4px; }
-  .broken-msg { font-size: 12px; }
-
-  scrollbar-width: thin;
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* BROKEN MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:center;justify-content:center}
+.mo.open{display:flex}
+.md{background:var(--s1);border:1px solid var(--b);border-radius:10px;width:560px;max-height:75vh;overflow-y:auto;padding:16px;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
+.md-t{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.md-close{background:none;border:none;color:var(--m);cursor:pointer;font-size:18px;line-height:1}
+.bi{padding:8px 10px;border-radius:6px;margin-bottom:6px;border-left:3px solid;cursor:pointer;transition:.1s}
+.bi:hover{opacity:.8}
+.bi.c{background:rgba(255,77,77,.07);border-color:var(--err)}
+.bi.w{background:rgba(245,166,35,.07);border-color:var(--warn)}
+.bi.i{background:rgba(61,139,255,.07);border-color:var(--a)}
+.bisev{font-size:8px;text-transform:uppercase;letter-spacing:2px;font-family:var(--fm);margin-bottom:2px}
+.bimsg{font-size:11px}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="header">
-  <div class="header-left">
-    <div class="logo">⬡ OTC·GRAPH</div>
-    <div class="breadcrumb">Mapping / <span>Order to Cash</span></div>
+<div class="hdr">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="logo">⬡ SAP·OTC</div>
+    <div class="bc">Graph / <b>Order to Cash</b></div>
   </div>
-  <div class="header-right">
-    <span class="badge badge-blue" id="node-count-badge">— nodes</span>
-    <span class="badge badge-green" id="edge-count-badge">— edges</span>
-    <button class="btn" style="width:auto;padding:6px 12px" onclick="loadBrokenFlows()">⚠ Broken Flows</button>
+  <div class="hdr-r">
+    <span class="pill pill-b" id="ncnt">— nodes</span>
+    <span class="pill pill-g" id="ecnt">— edges</span>
+    <span class="pill pill-r" id="bcnt" style="cursor:pointer" onclick="openBroken()">— broken</span>
+    <button class="hbtn" onclick="openBroken()">⚠ Broken Flows</button>
+    <button class="hbtn" onclick="resetHL()">↺ Reset</button>
   </div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
+  <div class="sb">
+    <div class="status-bar">
+      <span class="status-dot" id="sdot"></span>
+      <span id="stext">Connecting...</span>
+    </div>
 
-  <!-- SIDEBAR -->
-  <div class="sidebar">
-    <div class="sidebar-section">
-      <div class="sidebar-title">Node Types</div>
+    <div class="sbs">
+      <div class="sbt">Node Types</div>
       <div id="legend"></div>
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-title">Stats</div>
-      <div class="stat-grid" id="stats-grid">
-        <div class="stat-card"><div class="stat-value" id="s-orders">—</div><div class="stat-label">Orders</div></div>
-        <div class="stat-card"><div class="stat-value" id="s-deliveries">—</div><div class="stat-label">Deliver.</div></div>
-        <div class="stat-card"><div class="stat-value" id="s-billing">—</div><div class="stat-label">Invoices</div></div>
-        <div class="stat-card"><div class="stat-value" id="s-payments">—</div><div class="stat-label">Payments</div></div>
+    <div class="sbs">
+      <div class="sbt">SAP Records</div>
+      <div class="sg">
+        <div class="sc"><div class="sv" id="s-o">—</div><div class="sl">Orders</div></div>
+        <div class="sc"><div class="sv" id="s-b">—</div><div class="sl">Billing</div></div>
+        <div class="sc"><div class="sv" id="s-p">—</div><div class="sl">Payments</div></div>
+        <div class="sc"><div class="sv" id="s-c">—</div><div class="sl">Partners</div></div>
       </div>
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-title">View</div>
-      <div class="btn-group">
-        <button class="btn active" id="btn-full" onclick="setView('full')"><span class="icon">🌐</span> Full Graph</button>
-        <button class="btn" id="btn-broken" onclick="setView('broken')"><span class="icon">⚠️</span> Broken Flows</button>
-        <button class="btn" id="btn-reset" onclick="resetHighlights()"><span class="icon">↺</span> Reset</button>
+    <div class="sbs">
+      <div class="sbt">SAP Queries</div>
+      <div class="sbtn-g">
+        <button class="sbtn" onclick="ask('Find the journal entry for billing document 90504274')">📒 Billing → Journal</button>
+        <button class="sbtn" onclick="ask('Trace full flow for billing document 90504274')">🔗 Trace Full Flow</button>
+        <button class="sbtn" onclick="ask('Find all cancelled billing documents')">❌ Cancelled Billings</button>
+        <button class="sbtn" onclick="ask('Which products have highest billing count?')">📊 Top Products</button>
+        <button class="sbtn" onclick="ask('Show payment summary by customer')">💳 Payments</button>
+        <button class="sbtn" onclick="ask('Find incomplete order flows')">⚠️ Incomplete Flows</button>
+        <button class="sbtn" onclick="ask('Show all billing documents for customer 320000083')">👤 Customer Billings</button>
+        <button class="sbtn" onclick="ask('List all sales orders with no billing')">📦 Unbilled Orders</button>
       </div>
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-title">Quick Queries</div>
-      <div class="btn-group">
-        <button class="btn" onclick="sendQuery('Which products have highest billing count?')"><span class="icon">📊</span> Top Products</button>
-        <button class="btn" onclick="sendQuery('Find incomplete order flows')"><span class="icon">🔍</span> Broken Flows</button>
-        <button class="btn" onclick="sendQuery('How many overdue invoices exist?')"><span class="icon">⚠️</span> Overdue</button>
-        <button class="btn" onclick="sendQuery('Find customers with most orders')"><span class="icon">👤</span> Top Customers</button>
+    <div class="sbs">
+      <div class="sbt">Filter</div>
+      <div class="sbtn-g">
+        <button class="sbtn" onclick="filterType('all')">⬡ All</button>
+        <button class="sbtn" onclick="filterType('sales_order')">📦 Orders</button>
+        <button class="sbtn" onclick="filterType('billing_document')">🧾 Billing</button>
+        <button class="sbtn" onclick="filterType('business_partner')">👤 Partners</button>
+        <button class="sbtn" onclick="filterType('journal_entry')">📒 Journals</button>
       </div>
     </div>
   </div>
 
-  <!-- GRAPH AREA -->
-  <div class="graph-area">
-    <svg id="graph-svg"></svg>
-
-    <div class="broken-badge" id="broken-badge">
-      ⚠ <span id="broken-count">0</span> broken flows detected
+  <div class="ga">
+    <svg id="gsvg"></svg>
+    <div class="tt" id="tt">
+      <div class="tt-type" id="tt-t"></div>
+      <div class="tt-id" id="tt-i"></div>
+      <div id="tt-a"></div>
     </div>
-
-    <div class="tooltip" id="tooltip">
-      <div class="tooltip-type" id="tt-type"></div>
-      <div class="tooltip-id" id="tt-id"></div>
-      <div class="tooltip-attrs" id="tt-attrs"></div>
-    </div>
-
-    <div class="graph-controls">
-      <button class="ctrl-btn" onclick="zoomIn()" title="Zoom In">+</button>
-      <button class="ctrl-btn" onclick="zoomOut()" title="Zoom Out">−</button>
-      <button class="ctrl-btn" onclick="fitGraph()" title="Fit">⊡</button>
+    <div class="gc">
+      <button class="cbtn" onclick="zi()">+</button>
+      <button class="cbtn" onclick="zo()">−</button>
+      <button class="cbtn" onclick="fit()">⊡</button>
     </div>
   </div>
 
-  <!-- RESULTS PANEL -->
-  <div class="results-panel" id="results-panel">
-    <button class="results-close" onclick="closeResults()">×</button>
-    <div class="results-inner" id="results-inner"></div>
+  <div class="rb" id="rb">
+    <button class="rbc" onclick="closeRB()">×</button>
+    <div class="rbi" id="rbi"></div>
   </div>
 
-  <!-- CHAT PANEL -->
-  <div class="chat-panel">
-    <div class="chat-header">
-      <div class="chat-header-icon">⬡</div>
-      <div>
-        <div class="chat-title">Graph Agent</div>
-        <div class="chat-subtitle">Order to Cash</div>
-      </div>
-      <div class="status-dot"></div>
+  <div class="cp">
+    <div class="ch">
+      <div class="chi">⬡</div>
+      <div><div class="ct">SAP Graph Agent</div><div class="cs">Order to Cash · Live Data</div></div>
+      <div class="cdot" id="cdot"></div>
     </div>
-
-    <div class="chat-messages" id="chat-messages">
-      <div class="msg ai">
-        <div class="msg-avatar">⬡</div>
-        <div class="msg-body">
-          <div class="msg-name">OTC Agent</div>
-          <div class="msg-bubble">
-            Hi! I can help you analyze the <strong>Order-to-Cash</strong> process. Ask me anything about orders, deliveries, invoices, payments, or customers.
-          </div>
+    <div class="cm" id="cm">
+      <div class="msg ai"><div class="mav">⬡</div>
+        <div class="mb"><div class="mn">Agent</div>
+          <div class="bub">Connected to your <strong>SAP OTC dataset</strong>.<br><br>
+            I can query 100 sales orders, 80 billing docs, 120 payments, 123 journal entries and 8,161 graph edges.<br><br>
+            Ask me anything — I'll generate SQL, run it live, and highlight the results on the graph.</div>
         </div>
       </div>
     </div>
-
-    <div class="suggestions">
-      <div class="suggestion" onclick="sendQuery('Trace full flow of billing document BILL00005')">Trace billing flow</div>
-      <div class="suggestion" onclick="sendQuery('Which orders are overdue?')">Overdue orders</div>
-      <div class="suggestion" onclick="sendQuery('Show payment summary by method')">Payment methods</div>
+    <div class="sugg">
+      <div class="sug" onclick="ask('What is journal entry for 90504274?')">Journal for 90504274</div>
+      <div class="sug" onclick="ask('Show cancelled billing docs')">Cancelled billings</div>
+      <div class="sug" onclick="ask('Find orders with no billing')">Unbilled orders</div>
     </div>
-
-    <div class="chat-input-area">
-      <textarea class="chat-input" id="chat-input" placeholder="Analyze anything..." rows="1"
-        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-      <button class="send-btn" id="send-btn" onclick="sendFromInput()">➤</button>
+    <div class="cia">
+      <textarea class="ci" id="ci" placeholder="Ask about orders, billing, payments..." rows="1"
+        onkeydown="hk(event)" oninput="ar(this)"></textarea>
+      <button class="sndbtn" id="sndbtn" onclick="sendMsg()">➤</button>
     </div>
   </div>
 </div>
 
-<!-- BROKEN FLOW MODAL -->
-<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
-  <div class="modal">
-    <div class="modal-title">⚠ Broken Flow Detection</div>
-    <div id="modal-content"></div>
+<!-- BROKEN FLOWS MODAL -->
+<div class="mo" id="mo" onclick="cmo(event)">
+  <div class="md">
+    <div class="md-t">⚠ Broken Flow Detection
+      <button class="md-close" onclick="document.getElementById('mo').classList.remove('open')">×</button>
+    </div>
+    <div id="mc"><div style="color:var(--m);font-size:12px">Loading...</div></div>
   </div>
 </div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────────────────────
-const API = window.API_BASE || 'http://localhost:8000';
-const SESSION_ID = 'session_' + Math.random().toString(36).substr(2, 9);
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const API = 'http://localhost:8000';
+const SID = 'sess_' + Math.random().toString(36).slice(2, 9);
 
-const NODE_COLORS = {
-  order: '#3b82f6', delivery: '#10b981', billing: '#f59e0b',
-  payment: '#8b5cf6', customer: '#ef4444', product: '#06b6d4',
-  cluster: '#64748b', address: '#6b7280'
+const NC = {
+  sales_order:'#3d8bff', billing_document:'#f5a623', payment:'#a78bfa',
+  journal_entry:'#00d4a8', business_partner:'#ff4d4d', delivery:'#22c55e',
+  material:'#86efac', plant:'#94a3b8'
 };
-const NODE_ICONS = {
-  order: '📦', delivery: '🚚', billing: '🧾',
-  payment: '💳', customer: '👤', product: '🏷️', cluster: '⬡'
+const NI = {
+  sales_order:'📦', billing_document:'🧾', payment:'💳',
+  journal_entry:'📒', business_partner:'👤', delivery:'🚚',
+  material:'🏷️', plant:'🏭'
 };
 
-// ── GRAPH STATE ──────────────────────────────────────────────────────────────
-let graphData = { nodes: [], edges: [] };
-let highlightedNodes = new Set();
-let simulation, svg, g, zoom;
+let svg, g, zoom, sim, gdata = {nodes:[], edges:[]}, hl = new Set();
 
-// ── D3 GRAPH INIT ────────────────────────────────────────────────────────────
+// ── GRAPH INIT ────────────────────────────────────────────────────────────────
 function initGraph() {
-  const el = document.getElementById('graph-svg');
+  const el = document.getElementById('gsvg');
   const W = el.clientWidth, H = el.clientHeight;
-
-  svg = d3.select('#graph-svg');
+  svg = d3.select('#gsvg');
   svg.selectAll('*').remove();
-
-  zoom = d3.zoom()
-    .scaleExtent([0.1, 5])
-    .on('zoom', e => g.attr('transform', e.transform));
-
+  zoom = d3.zoom().scaleExtent([0.04, 8]).on('zoom', e => g.attr('transform', e.transform));
   svg.call(zoom);
-
-  // Defs for arrow markers per color
   const defs = svg.append('defs');
-  Object.entries(NODE_COLORS).forEach(([type, color]) => {
-    defs.append('marker')
-      .attr('id', `arrow-${type}`)
-      .attr('viewBox', '0 -4 8 8')
-      .attr('refX', 16).attr('refY', 0)
-      .attr('markerWidth', 6).attr('markerHeight', 6)
-      .attr('orient', 'auto')
-      .append('path')
-      .attr('d', 'M0,-4L8,0L0,4')
-      .attr('fill', color).attr('opacity', 0.6);
+  Object.entries(NC).forEach(([type, color]) => {
+    defs.append('marker').attr('id', 'arr-' + type)
+      .attr('viewBox', '0 -4 8 8').attr('refX', 15).attr('refY', 0)
+      .attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
+      .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', color).attr('opacity', .5);
   });
-
   g = svg.append('g');
-
-  simulation = d3.forceSimulation()
-    .force('link', d3.forceLink().id(d => d.id).distance(80).strength(0.5))
-    .force('charge', d3.forceManyBody().strength(-200))
+  sim = d3.forceSimulation()
+    .force('link', d3.forceLink().id(d => d.id).distance(85).strength(.4))
+    .force('charge', d3.forceManyBody().strength(-220))
     .force('center', d3.forceCenter(W / 2, H / 2))
-    .force('collision', d3.forceCollide().radius(22));
+    .force('col', d3.forceCollide().radius(20));
 }
 
-function renderGraph(data) {
-  graphData = data;
-  const nodes = data.nodes.map(n => ({ ...n }));
-  const edges = data.edges.map(e => ({
-    ...e,
-    source: e.source,
-    target: e.target
-  }));
-
+function renderGraph(nodes, edges) {
+  gdata = {nodes, edges};
   g.selectAll('*').remove();
+  const ns = nodes.map(n => ({...n}));
+  const es = edges.map(e => ({...e, source: e.source || e.s, target: e.target || e.t}));
 
-  // Edges
-  const link = g.append('g').attr('class', 'edges')
-    .selectAll('line')
-    .data(edges).enter().append('line')
+  const link = g.append('g').selectAll('line').data(es).enter().append('line')
     .attr('stroke', d => {
-      const srcNode = nodes.find(n => n.id === d.source || n.id === (d.source?.id));
-      return NODE_COLORS[srcNode?.type] || '#334155';
+      const sn = ns.find(n => n.id === d.source || n.id === d.source?.id);
+      return NC[sn?.type] || '#334155';
     })
-    .attr('stroke-width', 1.2)
-    .attr('stroke-opacity', 0.35)
+    .attr('stroke-width', 1).attr('stroke-opacity', .28)
     .attr('marker-end', d => {
-      const srcNode = nodes.find(n => n.id === d.source);
-      return `url(#arrow-${srcNode?.type || 'cluster'})`;
+      const sn = ns.find(n => n.id === d.source);
+      return `url(#arr-${sn?.type || 'sales_order'})`;
     });
 
-  // Edge labels (only on hover)
-  const edgeLabel = g.append('g').attr('class', 'edge-labels')
-    .selectAll('text')
-    .data(edges).enter().append('text')
-    .attr('fill', '#475569').attr('font-size', 8)
-    .attr('font-family', 'JetBrains Mono').attr('text-anchor', 'middle')
-    .attr('opacity', 0)
-    .text(d => d.relationship || '');
-
-  // Nodes
-  const node = g.append('g').attr('class', 'nodes')
-    .selectAll('g')
-    .data(nodes).enter().append('g')
-    .attr('class', 'node')
+  const node = g.append('g').selectAll('g').data(ns).enter().append('g')
     .style('cursor', 'pointer')
-    .call(d3.drag()
-      .on('start', dragStart)
-      .on('drag', dragged)
-      .on('end', dragEnd))
-    .on('mouseover', showTooltip)
-    .on('mousemove', moveTooltip)
-    .on('mouseout', hideTooltip)
+    .call(d3.drag().on('start', dgs).on('drag', dgd).on('end', dge))
+    .on('mouseover', showTT).on('mousemove', moveTT).on('mouseout', hideTT)
     .on('click', onNodeClick);
 
-  // Node circle
-  node.append('circle')
-    .attr('r', d => d.type === 'cluster' ? (d.size || 24) : 10)
-    .attr('fill', d => NODE_COLORS[d.type] || '#64748b')
-    .attr('fill-opacity', 0.15)
-    .attr('stroke', d => NODE_COLORS[d.type] || '#64748b')
+  node.append('circle').attr('r', 10)
+    .attr('fill', d => NC[d.type] || '#64748b')
+    .attr('fill-opacity', .14)
+    .attr('stroke', d => NC[d.type] || '#64748b')
     .attr('stroke-width', 1.5);
 
-  // Node icon
-  node.append('text')
-    .attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
-    .attr('font-size', d => d.type === 'cluster' ? 18 : 9)
-    .text(d => NODE_ICONS[d.type] || '●');
+  node.append('text').attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
+    .attr('font-size', 9).text(d => NI[d.type] || '●');
 
-  // Node label
-  node.append('text')
-    .attr('y', d => (d.type === 'cluster' ? (d.size || 24) : 10) + 11)
-    .attr('text-anchor', 'middle')
-    .attr('fill', '#94a3b8').attr('font-size', 8)
-    .attr('font-family', 'JetBrains Mono')
-    .text(d => d.label || d.id?.slice(-6) || '');
+  node.append('text').attr('y', 17).attr('text-anchor', 'middle')
+    .attr('fill', '#4a6f94').attr('font-size', 7).attr('font-family', 'IBM Plex Mono')
+    .text(d => String(d.label || d.id || '').slice(-8));
 
-  simulation.nodes(nodes).on('tick', () => {
-    link
-      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-    edgeLabel
-      .attr('x', d => (d.source.x + d.target.x) / 2)
-      .attr('y', d => (d.source.y + d.target.y) / 2);
+  sim.nodes(ns).on('tick', () => {
+    link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
     node.attr('transform', d => `translate(${d.x},${d.y})`);
   });
+  sim.force('link').links(es);
+  sim.alpha(1).restart();
 
-  simulation.force('link').links(edges);
-  simulation.alpha(1).restart();
-
-  // Update badge
-  document.getElementById('node-count-badge').textContent = `${nodes.length} nodes`;
-  document.getElementById('edge-count-badge').textContent = `${edges.length} edges`;
+  document.getElementById('ncnt').textContent = ns.length + ' nodes';
+  document.getElementById('ecnt').textContent = es.length + ' edges';
 }
 
-function highlightNodes(nodeRefs) {
-  if (!nodeRefs || !nodeRefs.length) return;
-  highlightedNodes = new Set(nodeRefs.map(n => n.id));
-
-  g.selectAll('.node circle')
-    .attr('fill-opacity', d => highlightedNodes.has(d.id) ? 0.8 : 0.08)
-    .attr('stroke-width', d => highlightedNodes.has(d.id) ? 3 : 1.5)
-    .attr('r', d => {
-      const base = d.type === 'cluster' ? (d.size || 24) : 10;
-      return highlightedNodes.has(d.id) ? base + 4 : base;
+function hlNodes(ids) {
+  if (!ids?.length) return;
+  hl = new Set(ids);
+  g.selectAll('circle')
+    .attr('fill-opacity', d => hl.has(d.id) ? .85 : .07)
+    .attr('stroke-width', d => hl.has(d.id) ? 3 : 1.3)
+    .attr('r', d => hl.has(d.id) ? 14 : 10);
+  g.selectAll('line')
+    .attr('stroke-opacity', d => {
+      const si = d.source?.id || d.source, ti = d.target?.id || d.target;
+      return (hl.has(si) || hl.has(ti)) ? .7 : .06;
+    })
+    .attr('stroke-width', d => {
+      const si = d.source?.id || d.source, ti = d.target?.id || d.target;
+      return (hl.has(si) || hl.has(ti)) ? 2.2 : .8;
     });
-
-  g.selectAll('.edges line')
-    .attr('stroke-opacity', d =>
-      highlightedNodes.has(d.source.id) || highlightedNodes.has(d.target.id) ? 0.7 : 0.08
-    ).attr('stroke-width', d =>
-      highlightedNodes.has(d.source.id) || highlightedNodes.has(d.target.id) ? 2.5 : 1
-    );
 }
 
-function resetHighlights() {
-  highlightedNodes.clear();
-  g.selectAll('.node circle')
-    .attr('fill-opacity', 0.15).attr('stroke-width', 1.5)
-    .attr('r', d => d.type === 'cluster' ? (d.size || 24) : 10);
-  g.selectAll('.edges line').attr('stroke-opacity', 0.35).attr('stroke-width', 1.2);
+function resetHL() {
+  hl.clear();
+  g.selectAll('circle').attr('fill-opacity', .14).attr('stroke-width', 1.5).attr('r', 10);
+  g.selectAll('line').attr('stroke-opacity', .28).attr('stroke-width', 1);
 }
 
-// ── TOOLTIP ──────────────────────────────────────────────────────────────────
-function showTooltip(event, d) {
-  const tt = document.getElementById('tooltip');
-  document.getElementById('tt-type').textContent = d.type?.toUpperCase() || '';
-  document.getElementById('tt-id').textContent = d.id || '';
-
-  const attrs = d.attributes || {};
-  const keys = Object.keys(attrs).slice(0, 6);
-  document.getElementById('tt-attrs').innerHTML = keys.map(k =>
-    `<div class="tooltip-row"><span class="tooltip-key">${k}</span><span class="tooltip-val">${attrs[k] ?? '—'}</span></div>`
-  ).join('') || '<div class="tooltip-row"><span class="tooltip-key">Click to expand</span></div>';
-
-  tt.style.left = (event.clientX + 14) + 'px';
-  tt.style.top = (event.clientY - 14) + 'px';
-  tt.classList.add('show');
-}
-
-function moveTooltip(event) {
-  const tt = document.getElementById('tooltip');
-  tt.style.left = (event.clientX + 14) + 'px';
-  tt.style.top = (event.clientY - 14) + 'px';
-}
-
-function hideTooltip() {
-  document.getElementById('tooltip').classList.remove('show');
-}
-
-// ── NODE CLICK: EXPAND ───────────────────────────────────────────────────────
-async function onNodeClick(event, d) {
-  event.stopPropagation();
-  if (d.type === 'cluster') return;
-  try {
-    const res = await fetch(`${API}/graph/expand`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ node_id: d.id, node_type: d.type, depth: 2 })
-    });
-    const data = await res.json();
-    if (data.nodes?.length) {
-      renderGraph({ nodes: data.nodes, edges: data.edges });
-      highlightNodes([{ id: d.id }]);
-    }
-  } catch (e) {
-    console.error('Expand failed:', e);
-  }
-}
-
-// ── DRAG ─────────────────────────────────────────────────────────────────────
-function dragStart(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
-function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
-function dragEnd(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
-
-// ── ZOOM CONTROLS ─────────────────────────────────────────────────────────────
-function zoomIn() { svg.transition().call(zoom.scaleBy, 1.4); }
-function zoomOut() { svg.transition().call(zoom.scaleBy, 0.7); }
-function fitGraph() { svg.transition().call(zoom.transform, d3.zoomIdentity); }
-
-// ── LEGEND ───────────────────────────────────────────────────────────────────
-function buildLegend() {
-  const types = ['order','delivery','billing','payment','customer','product'];
-  const el = document.getElementById('legend');
-  el.innerHTML = types.map(t =>
-    `<div class="legend-item" onclick="filterByType('${t}')">
-      <div class="legend-dot" style="background:${NODE_COLORS[t]}"></div>
-      <span>${NODE_ICONS[t]} ${t.charAt(0).toUpperCase()+t.slice(1)}</span>
-    </div>`
-  ).join('');
-}
-
-function filterByType(type) {
-  g.selectAll('.node').attr('opacity', d => d.type === type ? 1 : 0.15);
-  g.selectAll('.edges line').attr('stroke-opacity', d => {
-    const src = graphData.nodes.find(n => n.id === (d.source?.id || d.source));
-    const tgt = graphData.nodes.find(n => n.id === (d.target?.id || d.target));
-    return (src?.type === type || tgt?.type === type) ? 0.6 : 0.05;
+function filterType(type) {
+  if (type === 'all') { resetHL(); return; }
+  g.selectAll('g[data-id]').attr('opacity', d => d.type === type ? 1 : .1);
+  g.selectAll('line').attr('stroke-opacity', d => {
+    const sn = gdata.nodes.find(n => n.id === (d.source?.id || d.source));
+    const tn = gdata.nodes.find(n => n.id === (d.target?.id || d.target));
+    return (sn?.type === type || tn?.type === type) ? .55 : .03;
   });
 }
 
-// ── STATS ─────────────────────────────────────────────────────────────────────
-async function loadStats() {
+// Tooltip
+function showTT(ev, d) {
+  document.getElementById('tt-t').textContent = (d.type || '').toUpperCase().replace('_', ' ');
+  document.getElementById('tt-i').textContent = d.label || d.id || '';
+  const attrs = d.attrs || d.attributes || {};
+  const keys = Object.keys(attrs).filter(k => attrs[k] != null && attrs[k] !== '').slice(0, 6);
+  document.getElementById('tt-a').innerHTML = keys.map(k =>
+    `<div class="tt-row"><span class="tt-k">${k}</span><span class="tt-v" title="${attrs[k]}">${attrs[k]}</span></div>`
+  ).join('') || '<div style="color:var(--m);font-size:10px">Click to expand</div>';
+  const tt = document.getElementById('tt');
+  tt.style.left = (ev.clientX + 12) + 'px';
+  tt.style.top = (ev.clientY - 12) + 'px';
+  tt.classList.add('show');
+}
+function moveTT(ev) {
+  const tt = document.getElementById('tt');
+  tt.style.left = (ev.clientX + 12) + 'px';
+  tt.style.top = (ev.clientY - 12) + 'px';
+}
+function hideTT() { document.getElementById('tt').classList.remove('show'); }
+
+// Node click → expand from backend
+async function onNodeClick(ev, d) {
+  ev.stopPropagation();
+  if (!d.type || !d.id) return;
   try {
-    const res = await fetch(`${API}/health`);
+    const res = await fetch(API + '/graph/expand', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({node_id: d.id, node_type: d.type, depth: 2})
+    });
+    if (!res.ok) return;
     const data = await res.json();
-    const n = data.nodes;
-    if (n) {
-      document.getElementById('s-orders').textContent = n.orders || 0;
-      document.getElementById('s-deliveries').textContent = n.deliveries || 0;
-      document.getElementById('s-billing').textContent = n.billing_documents || 0;
-      document.getElementById('s-payments').textContent = n.payments || 0;
+    if (data.nodes?.length > 1) {
+      renderGraph(data.nodes, data.edges);
+      hlNodes([d.id]);
     }
   } catch(e) {}
 }
 
-// ── BROKEN FLOWS ─────────────────────────────────────────────────────────────
-async function loadBrokenFlows() {
+// Drag
+function dgs(ev, d) { if (!ev.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; }
+function dgd(ev, d) { d.fx = ev.x; d.fy = ev.y; }
+function dge(ev, d) { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }
+
+// Zoom
+function zi() { svg.transition().call(zoom.scaleBy, 1.4); }
+function zo() { svg.transition().call(zoom.scaleBy, .72); }
+function fit() { svg.transition().call(zoom.transform, d3.zoomIdentity); }
+
+// ── LEGEND ────────────────────────────────────────────────────────────────────
+function buildLegend() {
+  document.getElementById('legend').innerHTML = Object.entries(NC).map(([t, c]) =>
+    `<div class="leg-item" onclick="filterType('${t}')">
+       <div class="leg-dot" style="background:${c}"></div>
+       <span>${NI[t] || '●'} ${t.replace('_', ' ')}</span>
+     </div>`
+  ).join('');
+}
+
+// ── BACKEND LOAD ──────────────────────────────────────────────────────────────
+async function loadGraph() {
   try {
-    const res = await fetch(`${API}/graph/broken-flows`);
+    const res = await fetch(API + '/graph/full');
+    if (!res.ok) throw new Error('not ok');
     const data = await res.json();
-    const count = data.summary?.total_broken || 0;
+    renderGraph(data.nodes || [], data.edges || []);
+    setStatus(true);
+  } catch (e) {
+    setStatus(false);
+    addMsg('ai', '⚠ Backend not reachable at <code>localhost:8000</code>.<br><br>Start it with:<br><code>uvicorn main:app --reload --port 8000</code>', null, [], []);
+  }
+}
 
-    const badge = document.getElementById('broken-badge');
-    badge.classList.add('show');
-    document.getElementById('broken-count').textContent = count;
+async function loadHealth() {
+  try {
+    const res = await fetch(API + '/health');
+    const data = await res.json();
+    const c = data.counts || {};
+    document.getElementById('s-o').textContent = c.sales_order_headers || '—';
+    document.getElementById('s-b').textContent = c.billing_documents || '—';
+    document.getElementById('s-p').textContent = c.payments_ar || '—';
+    document.getElementById('s-c').textContent = c.business_partners || '—';
+  } catch(e) {}
+}
 
-    const modal = document.getElementById('modal-overlay');
-    const content = document.getElementById('modal-content');
-
+async function openBroken() {
+  document.getElementById('mo').classList.add('open');
+  document.getElementById('mc').innerHTML = '<div style="color:var(--m);font-size:12px">Loading...</div>';
+  try {
+    const res = await fetch(API + '/graph/broken-flows');
+    const data = await res.json();
+    document.getElementById('bcnt').textContent = (data.summary?.total_broken || 0) + ' broken';
     const sections = [
-      { key: 'critical', label: 'Critical', cls: 'critical' },
-      { key: 'warnings', label: 'Warnings', cls: 'warning' },
-      { key: 'info', label: 'Info', cls: 'info' },
+      {key: 'critical', cls: 'c', col: 'var(--err)'},
+      {key: 'warnings', cls: 'w', col: 'var(--warn)'},
+      {key: 'info',     cls: 'i', col: 'var(--a)'},
     ];
-
-    content.innerHTML = sections.map(s =>
+    document.getElementById('mc').innerHTML = sections.map(s =>
       (data[s.key] || []).map(item =>
-        `<div class="broken-item ${s.cls}">
-          <div class="broken-sev" style="color:var(--${s.cls === 'critical' ? 'danger' : s.cls === 'warning' ? 'warning' : 'accent'})">${item.type}</div>
-          <div class="broken-msg">${item.message}</div>
+        `<div class="bi ${s.cls}" onclick="hlNodes(['${item.node?.id}']);document.getElementById('mo').classList.remove('open')">
+          <div class="bisev" style="color:${s.col}">${item.type}</div>
+          <div class="bimsg">${item.message}</div>
         </div>`
       ).join('')
-    ).join('');
-
-    modal.classList.add('open');
+    ).join('') || '<div style="color:var(--m);font-size:12px">No broken flows found.</div>';
   } catch(e) {
-    showDemoData();
+    document.getElementById('mc').innerHTML = '<div style="color:var(--err);font-size:12px">Could not load broken flows — is the backend running?</div>';
   }
 }
 
-function showDemoData() {
-  const modal = document.getElementById('modal-overlay');
-  document.getElementById('modal-content').innerHTML = `
-    <div class="broken-item critical"><div class="broken-sev" style="color:var(--danger)">MISSING_BILLING</div>
-    <div class="broken-msg">Order ORD00023 delivered but never billed (₹45,000)</div></div>
-    <div class="broken-item warning"><div class="broken-sev" style="color:var(--warning)">UNPAID_OVERDUE</div>
-    <div class="broken-msg">Billing BILL00008 overdue since 2025-02-01 (₹12,500)</div></div>
-    <div class="broken-item info"><div class="broken-sev" style="color:var(--accent)">NO_DELIVERY</div>
-    <div class="broken-msg">Order ORD00045 confirmed but no delivery created</div></div>`;
-  modal.classList.add('open');
+function cmo(ev) {
+  if (ev.target === document.getElementById('mo'))
+    document.getElementById('mo').classList.remove('open');
 }
 
-function closeModal(e) {
-  if (e.target === document.getElementById('modal-overlay'))
-    document.getElementById('modal-overlay').classList.remove('open');
+function setStatus(ok) {
+  const dot = document.getElementById('sdot');
+  const txt = document.getElementById('stext');
+  const cdot = document.getElementById('cdot');
+  dot.className = 'status-dot' + (ok ? ' ok' : '');
+  txt.textContent = ok ? 'Backend connected' : 'Backend offline';
+  cdot.style.background = ok ? 'var(--a2)' : 'var(--err)';
+  cdot.style.boxShadow = ok ? '0 0 6px var(--a2)' : '0 0 6px var(--err)';
 }
 
-// ── CHAT ─────────────────────────────────────────────────────────────────────
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFromInput(); }
-}
+// ── CHAT ──────────────────────────────────────────────────────────────────────
+function hk(ev) { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); sendMsg(); } }
+function ar(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 80) + 'px'; }
 
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
-}
-
-function sendFromInput() {
-  const input = document.getElementById('chat-input');
-  const q = input.value.trim();
+function sendMsg() {
+  const ci = document.getElementById('ci');
+  const q = ci.value.trim();
   if (!q) return;
-  input.value = '';
-  input.style.height = 'auto';
-  sendQuery(q);
+  ci.value = ''; ci.style.height = 'auto';
+  ask(q);
 }
 
-async function sendQuery(question) {
-  addMessage('user', question);
-  const typingId = addTyping();
-  document.getElementById('send-btn').disabled = true;
+function ask(q) {
+  addMsg('u', q);
+  const tid = addTyping();
+  document.getElementById('sndbtn').disabled = true;
 
-  try {
-    const res = await fetch(`${API}/query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: question, session_id: SESSION_ID })
-    });
-    const data = await res.json();
-
-    removeTyping(typingId);
-    addMessage('ai', data.answer, data.sql, data.results, data.highlighted_nodes);
-
-    if (data.highlighted_nodes?.length) {
-      highlightNodes(data.highlighted_nodes);
-    }
-    if (data.results?.length) {
-      showResults(data.results);
-    }
-  } catch(e) {
-    removeTyping(typingId);
-    // Demo mode: show simulated response
-    addDemoResponse(question);
-  }
-
-  document.getElementById('send-btn').disabled = false;
+  fetch(API + '/query', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({query: q, session_id: SID})
+  })
+  .then(r => r.json())
+  .then(data => {
+    removeTyping(tid);
+    addMsg('ai', data.answer, data.sql, data.results, data.highlighted_nodes);
+    if (data.highlighted_nodes?.length) hlNodes(data.highlighted_nodes.map(n => n.id));
+    if (data.results?.length) showRB(data.results);
+  })
+  .catch(e => {
+    removeTyping(tid);
+    addMsg('ai', '⚠ Could not reach backend. Make sure <code>uvicorn main:app --port 8000</code> is running.');
+  })
+  .finally(() => { document.getElementById('sndbtn').disabled = false; });
 }
 
-function addDemoResponse(question) {
-  const demos = {
-    'default': 'Based on the Order-to-Cash data, I found relevant records. The system is running in demo mode — connect the backend for live results.',
-  };
-  addMessage('ai', demos['default'], 'SELECT * FROM orders LIMIT 10;', [], []);
-}
-
-function addMessage(role, text, sql, results, nodes) {
-  const msgs = document.getElementById('chat-messages');
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-
-  const resultsBadge = (results?.length > 0)
-    ? `<div class="msg-results-badge" onclick="showResults(window._lastResults)">⊞ ${results.length} rows — view table</div>`
-    : '';
-
-  const sqlBlock = sql
-    ? `<div class="msg-sql"><div class="msg-sql-label">GENERATED SQL</div>${escHtml(sql)}</div>` : '';
-
-  div.innerHTML = `
-    <div class="msg-avatar">${role === 'user' ? '👤' : '⬡'}</div>
-    <div class="msg-body">
-      <div class="msg-name">${role === 'user' ? 'You' : 'OTC Agent'}</div>
-      <div class="msg-bubble">${escHtml(text)}</div>
-      ${sqlBlock}
-      ${resultsBadge}
+function addMsg(role, text, sql, results, nodes) {
+  const cm = document.getElementById('cm');
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  const sqlBlock = sql ? `<div class="sql-blk"><div class="sql-lbl">SQL</div>${esc(sql)}</div>` : '';
+  const rBadge = results?.length ? `<div class="rbadge" onclick="showRB(window._lr)">⊞ ${results.length} rows</div>` : '';
+  d.innerHTML = `<div class="mav">${role === 'u' ? '👤' : '⬡'}</div>
+    <div class="mb">
+      <div class="mn">${role === 'u' ? 'You' : 'Agent'}</div>
+      <div class="bub">${role === 'u' ? esc(text) : text}</div>
+      ${sqlBlock}${rBadge}
     </div>`;
-
-  if (results?.length) window._lastResults = results;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
+  if (results?.length) window._lr = results;
+  cm.appendChild(d);
+  cm.scrollTop = cm.scrollHeight;
 }
 
 function addTyping() {
-  const msgs = document.getElementById('chat-messages');
-  const id = 'typing_' + Date.now();
-  const div = document.createElement('div');
-  div.className = 'msg ai'; div.id = id;
-  div.innerHTML = `<div class="msg-avatar">⬡</div>
-    <div class="msg-body">
-      <div class="msg-name">OTC Agent</div>
-      <div class="msg-bubble"><div class="typing">
-        <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
-      </div></div>
-    </div>`;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
+  const cm = document.getElementById('cm');
+  const id = 'typ_' + Date.now();
+  const d = document.createElement('div');
+  d.className = 'msg ai'; d.id = id;
+  d.innerHTML = `<div class="mav">⬡</div><div class="mb"><div class="mn">Agent</div>
+    <div class="bub"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div></div></div>`;
+  cm.appendChild(d); cm.scrollTop = cm.scrollHeight;
   return id;
 }
+function removeTyping(id) { document.getElementById(id)?.remove(); }
 
-function removeTyping(id) {
-  const el = document.getElementById(id);
-  if (el) el.remove();
-}
-
-// ── RESULTS TABLE ─────────────────────────────────────────────────────────────
-function showResults(rows) {
+function showRB(rows) {
   if (!rows?.length) return;
-  const panel = document.getElementById('results-panel');
-  const inner = document.getElementById('results-inner');
   const cols = Object.keys(rows[0]);
-  inner.innerHTML = `<table>
-    <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
-    <tbody>${rows.slice(0,50).map(r =>
-      `<tr>${cols.map(c => `<td>${r[c] ?? '—'}</td>`).join('')}</tr>`
-    ).join('')}</tbody>
-  </table>`;
-  panel.classList.add('open');
+  document.getElementById('rbi').innerHTML = `
+    <table><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+    <tbody>${rows.slice(0, 100).map(r =>
+      `<tr>${cols.map(c => `<td title="${r[c] ?? ''}">${r[c] ?? '—'}</td>`).join('')}</tr>`
+    ).join('')}</tbody></table>`;
+  document.getElementById('rb').classList.add('open');
 }
-
-function closeResults() {
-  document.getElementById('results-panel').classList.remove('open');
-}
-
-// ── VIEW TOGGLE ────────────────────────────────────────────────────────────────
-function setView(v) {
-  document.querySelectorAll('.btn[id^="btn-"]').forEach(b => b.classList.remove('active'));
-  document.getElementById(`btn-${v}`)?.classList.add('active');
-  if (v === 'broken') loadBrokenFlows();
-  else loadGraph();
-}
-
-// ── INITIAL LOAD ──────────────────────────────────────────────────────────────
-async function loadGraph() {
-  try {
-    const res = await fetch(`${API}/graph/full`);
-    const data = await res.json();
-    renderGraph(data);
-  } catch(e) {
-    // Demo graph when backend not running
-    renderGraph(getDemoGraph());
-  }
-}
-
-function getDemoGraph() {
-  const nodes = [
-    { id: 'C0001', type: 'customer', label: 'Customer', attributes: { name: 'Acme Corp', segment: 'ENTERPRISE' } },
-    { id: 'ORD00001', type: 'order', label: 'ORD-0001', attributes: { status: 'DELIVERED', amount: 45000 } },
-    { id: 'ORD00002', type: 'order', label: 'ORD-0002', attributes: { status: 'CONFIRMED', amount: 12000 } },
-    { id: 'DEL00001', type: 'delivery', label: 'DEL-0001', attributes: { status: 'DELIVERED', carrier: 'FEDEX' } },
-    { id: 'BILL00001', type: 'billing', label: 'BILL-0001', attributes: { status: 'PAID', amount: 45000 } },
-    { id: 'BILL00002', type: 'billing', label: 'BILL-0002', attributes: { status: 'OVERDUE', amount: 12000 } },
-    { id: 'PAY00001', type: 'payment', label: 'PAY-0001', attributes: { method: 'BANK_TRANSFER', amount: 45000 } },
-    { id: 'P0001', type: 'product', label: 'Software Lic', attributes: { name: 'Enterprise License', price: 5000 } },
-    { id: 'C0002', type: 'customer', label: 'Customer 2', attributes: { name: 'TechStart Ltd', segment: 'SME' } },
-    { id: 'ORD00003', type: 'order', label: 'ORD-0003', attributes: { status: 'OPEN', amount: 8500 } },
-  ];
-  const edges = [
-    { source: 'ORD00001', target: 'C0001', relationship: 'PLACED_BY' },
-    { source: 'ORD00001', target: 'DEL00001', relationship: 'FULFILLED_BY' },
-    { source: 'ORD00001', target: 'BILL00001', relationship: 'BILLED_AS' },
-    { source: 'BILL00001', target: 'PAY00001', relationship: 'SETTLED_BY' },
-    { source: 'ORD00002', target: 'C0001', relationship: 'PLACED_BY' },
-    { source: 'ORD00002', target: 'BILL00002', relationship: 'BILLED_AS' },
-    { source: 'ORD00003', target: 'C0002', relationship: 'PLACED_BY' },
-    { source: 'ORD00001', target: 'P0001', relationship: 'CONTAINS' },
-  ];
-  return { nodes, edges };
-}
-
-function escHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function closeRB() { document.getElementById('rb').classList.remove('open'); }
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   buildLegend();
   initGraph();
   loadGraph();
-  loadStats();
+  loadHealth();
 });
-
 window.addEventListener('resize', () => {
   initGraph();
-  if (graphData.nodes.length) renderGraph(graphData);
+  if (gdata.nodes.length) renderGraph(gdata.nodes, gdata.edges);
 });
 </script>
 </body>

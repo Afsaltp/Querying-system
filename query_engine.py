@@ -22,9 +22,9 @@ import re
 import json
 import sqlite3
 import asyncio
-import httpx
-from typing import Optional
-from graph.graph_store import GraphStore
+import httpx  # type: ignore
+from typing import Optional, Any
+from graph_store import GraphStore  # type: ignore
 
 
 # ─── SYSTEM PROMPT ─────────────────────────────────────────────────────────────
@@ -194,6 +194,7 @@ class QueryEngine:
             )
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"].strip()
+        return ""
 
     async def _call_gemini(self, prompt: str) -> str:
         """Fallback: Gemini Flash (free tier)"""
@@ -206,6 +207,7 @@ class QueryEngine:
             resp = await client.post(url, json=body)
             resp.raise_for_status()
             return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return ""
 
     async def _generate_sql(self, question: str) -> str:
         """Generate SQL from natural language with fallback"""
@@ -223,9 +225,9 @@ class QueryEngine:
 
         raise RuntimeError("No LLM API keys configured. Set GROQ_API_KEY or GEMINI_API_KEY.")
 
-    async def _generate_response(self, question: str, results: list) -> str:
+    async def _generate_response(self, question: str, results: list[dict[str, Any]]) -> str:
         """Generate grounded natural language response from SQL results"""
-        results_str = json.dumps(results[:20], indent=2)  # send max 20 rows to LLM
+        results_str = json.dumps(results[:20], indent=2)  # type: ignore
         prompt = RESPONSE_PROMPT.format(question=question, results=results_str)
 
         if self.groq_api_key:
@@ -331,7 +333,7 @@ class QueryEngine:
         sql = re.sub(r'^SQL:\s*', '', sql, flags=re.IGNORECASE)
         return sql.strip()
 
-    def _extract_node_refs(self, results: list) -> list:
+    def _extract_node_refs(self, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Extract node IDs from results for frontend graph highlighting.
         Detects common ID patterns in result columns.
@@ -345,7 +347,7 @@ class QueryEngine:
             'customer': r'^C\d+$',
             'product': r'^P\d+$',
         }
-        for row in results[:50]:
+        for row in results[:50]:  # type: ignore
             for val in row.values():
                 if not isinstance(val, str):
                     continue
