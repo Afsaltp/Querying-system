@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ⬡ OTC Graph Intelligence System
 
 > Graph-based data modeling + LLM-powered query interface for Order-to-Cash business flows.
@@ -291,5 +292,10 @@ GET /health
 | **OpenRouter** | mistral-7b | Limited | Medium |
 
 Get Groq key: https://console.groq.com (recommended - fastest, most generous free tier)
+#   Q u e r y i n g - s y s t e m  
+ 
+=======
+# Querying-system
+>>>>>>> 7bd959320217013688af98ee8a38a8df63aa3c31
 #   Q u e r y i n g - s y s t e m  
  
