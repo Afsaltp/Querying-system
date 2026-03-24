@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OTC Graph Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap');
+:root{
+  --bg:#080d18;--s1:#0f1724;--s2:#162032;--b:#1c2d45;
+  --a:#4f8ef7;--a2:#00c4a0;--warn:#f0a500;--err:#ef4444;--pur:#9b72f8;
+  --t:#c8d6e8;--m:#546e8a;
+  --ord:#4f8ef7;--del:#00c4a0;--bil:#f0a500;--pay:#9b72f8;--cus:#ef4444;--pro:#06c8e8;
+  --ff:'Syne',sans-serif;--fm:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ff);background:var(--bg);color:var(--t);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:48px;background:var(--s1);border-bottom:1px solid var(--b);flex-shrink:0;z-index:10}
+.logo{font-family:var(--fm);font-size:12px;font-weight:500;color:var(--a);letter-spacing:3px}
+.bc{font-family:var(--fm);font-size:11px;color:var(--m)}.bc b{color:var(--t);font-weight:400}
+.hdr-r{display:flex;gap:8px;align-items:center}
+.pill{padding:2px 9px;border-radius:3px;font-size:10px;font-family:var(--fm);border:1px solid}
+.pill-b{background:rgba(79,142,247,.1);border-color:var(--a);color:var(--a)}
+.pill-g{background:rgba(0,196,160,.1);border-color:var(--a2);color:var(--a2)}
+.hbtn{padding:5px 11px;border-radius:4px;border:1px solid var(--b);background:var(--s2);color:var(--t);font-family:var(--ff);font-size:11px;cursor:pointer;transition:.15s}
+.hbtn:hover{border-color:var(--warn);color:var(--warn)}
+.main{display:flex;flex:1;overflow:hidden}
+/* SIDEBAR */
+.sb{width:210px;background:var(--s1);border-right:1px solid var(--b);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.sbs{padding:12px 12px 10px;border-bottom:1px solid var(--b)}
+.sbt{font-size:9px;letter-spacing:2.5px;color:var(--m);text-transform:uppercase;margin-bottom:9px;font-family:var(--fm)}
+.leg-item{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:5px;cursor:pointer;font-size:12px;transition:.12s}
+.leg-item:hover{background:var(--s2)}.leg-dot{width:9px;height:9px;border-radius:50%}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.sc{background:var(--s2);border:1px solid var(--b);border-radius:7px;padding:8px;text-align:center}
+.sv{font-size:22px;font-weight:700;font-family:var(--fm);color:var(--a)}
+.sl{font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.sbtn-g{display:flex;flex-direction:column;gap:5px}
+.sbtn{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:5px;cursor:pointer;font-size:11px;font-family:var(--ff);border:1px solid var(--b);background:var(--s2);color:var(--t);transition:.12s;width:100%}
+.sbtn:hover{border-color:var(--a);color:var(--a)}.sbtn.act{border-color:var(--a);background:rgba(79,142,247,.1);color:var(--a)}
+/* GRAPH */
+.ga{flex:1;position:relative;overflow:hidden;background:var(--bg)}
+.ga::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(28,45,69,.4) 1px,transparent 1px),linear-gradient(90deg,rgba(28,45,69,.4) 1px,transparent 1px);background-size:36px 36px;pointer-events:none}
+#gsvg{width:100%;height:100%;cursor:grab}
+#gsvg:active{cursor:grabbing}
+.gc{position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:4px}
+.cbtn{width:30px;height:30px;border-radius:5px;background:var(--s1);border:1px solid var(--b);color:var(--t);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:.12s}
+.cbtn:hover{border-color:var(--a);color:var(--a)}
+/* TOOLTIP */
+.tt{position:absolute;background:var(--s1);border:1px solid var(--b);border-radius:9px;padding:11px 13px;min-width:190px;max-width:280px;font-size:11px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:200;box-shadow:0 8px 28px rgba(0,0,0,.6)}
+.tt.show{opacity:1}
+.tt-type{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--m);margin-bottom:3px;font-family:var(--fm)}
+.tt-id{font-weight:600;font-family:var(--fm);font-size:12px;margin-bottom:7px}
+.tt-row{display:flex;justify-content:space-between;gap:8px;margin:2px 0}
+.tt-k{color:var(--m)}.tt-v{color:var(--t);font-family:var(--fm);font-size:10px}
+/* RESULTS BAND */
+.rb{position:absolute;bottom:0;left:210px;right:340px;background:var(--s1);border-top:1px solid var(--b);max-height:0;overflow:hidden;transition:max-height .3s ease;z-index:50}
+.rb.open{max-height:200px}
+.rbi{overflow:auto;max-height:200px;padding:10px 14px}
+.rbc{position:absolute;top:6px;right:8px;background:none;border:none;color:var(--m);cursor:pointer;font-size:17px;line-height:1}
+table{width:100%;border-collapse:collapse;font-size:10px;font-family:var(--fm)}
+th{padding:3px 7px;text-align:left;color:var(--m);border-bottom:1px solid var(--b);font-weight:500;white-space:nowrap}
+td{padding:3px 7px;border-bottom:1px solid rgba(28,45,69,.5);white-space:nowrap}
+tr:hover td{background:var(--s2)}
+/* CHAT */
+.cp{width:340px;background:var(--s1);border-left:1px solid var(--b);display:flex;flex-direction:column;flex-shrink:0}
+.ch{padding:12px 14px;border-bottom:1px solid var(--b);display:flex;align-items:center;gap:10px}
+.chi{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.ct{font-weight:600;font-size:13px}.cs{font-size:10px;color:var(--m);font-family:var(--fm)}
+.cdot{width:7px;height:7px;border-radius:50%;background:var(--a2);margin-left:auto;box-shadow:0 0 6px var(--a2);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.cm{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:11px;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
+.msg{display:flex;gap:7px;animation:si .2s ease}
+@keyframes si{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.msg.u{flex-direction:row-reverse}
+.mav{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;background:var(--s2);border:1px solid var(--b)}
+.msg.u .mav{background:linear-gradient(135deg,var(--a),var(--pur))}
+.mb{display:flex;flex-direction:column;gap:3px;max-width:calc(100% - 38px)}
+.mn{font-size:9px;color:var(--m);font-family:var(--fm)}
+.msg.u .mn{text-align:right}
+.bub{padding:9px 11px;border-radius:9px;font-size:12px;line-height:1.55}
+.msg.u .bub{background:var(--a);color:#fff;border-radius:9px 2px 9px 9px}
+.msg.ai .bub{background:var(--s2);border:1px solid var(--b);border-radius:2px 9px 9px 9px}
+.sql-blk{margin-top:5px;background:var(--bg);border:1px solid var(--b);border-radius:5px;padding:7px 9px;font-family:var(--fm);font-size:9px;color:var(--a2);overflow-x:auto;white-space:pre;max-height:80px}
+.sql-lbl{font-size:8px;color:var(--m);margin-bottom:3px;letter-spacing:1px;font-family:var(--fm)}
+.rbadge{display:inline-flex;align-items:center;gap:4px;margin-top:3px;background:rgba(0,196,160,.08);border:1px solid rgba(0,196,160,.25);border-radius:3px;padding:2px 6px;font-size:9px;color:var(--a2);font-family:var(--fm);cursor:pointer}
+.typing{display:flex;gap:3px;align-items:center;padding:2px 0}
+.td{width:5px;height:5px;border-radius:50%;background:var(--m);animation:bounce 1.2s infinite}
+.td:nth-child(2){animation-delay:.2s}.td:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(1)}40%{transform:scale(1.5)}}
+/* SUGGESTIONS */
+.sugg{padding:7px 14px;display:flex;flex-wrap:wrap;gap:5px;border-top:1px solid var(--b)}
+.sug{padding:3px 9px;background:var(--s2);border:1px solid var(--b);border-radius:20px;font-size:10px;cursor:pointer;transition:.12s;white-space:nowrap}
+.sug:hover{border-color:var(--a);color:var(--a)}
+/* INPUT */
+.cia{padding:10px 14px;border-top:1px solid var(--b);display:flex;gap:7px;align-items:flex-end}
+.ci{flex:1;background:var(--s2);border:1px solid var(--b);border-radius:9px;padding:9px 11px;color:var(--t);font-family:var(--ff);font-size:12px;resize:none;outline:none;min-height:38px;max-height:90px;line-height:1.4;transition:border-color .12s}
+.ci:focus{border-color:var(--a)}.ci::placeholder{color:var(--m)}
+.sndbtn{width:36px;height:36px;border-radius:9px;background:var(--a);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:.12s;flex-shrink:0}
+.sndbtn:hover{background:#3a7de0;transform:scale(1.04)}.sndbtn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:center;justify-content:center}
+.mo.open{display:flex}
+.md{background:var(--s1);border:1px solid var(--b);border-radius:12px;width:580px;max-height:78vh;overflow-y:auto;padding:18px}
+.md-t{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.md-close{background:none;border:none;color:var(--m);cursor:pointer;font-size:19px}
+.bi{padding:9px 11px;border-radius:7px;margin-bottom:7px;border-left:3px solid}
+.bi.c{background:rgba(239,68,68,.07);border-color:var(--err)}
+.bi.w{background:rgba(240,165,0,.07);border-color:var(--warn)}
+.bi.i{background:rgba(79,142,247,.07);border-color:var(--a)}
+.bisev{font-size:8px;text-transform:uppercase;letter-spacing:2px;font-family:var(--fm);margin-bottom:3px}
+.bimsg{font-size:11px}
+/* STATUS BAR */
+.sf{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(239,68,68,.15);border:1px solid var(--err);border-radius:6px;padding:5px 12px;font-size:10px;color:var(--err);font-family:var(--fm);display:none;align-items:center;gap:6px}
+.sf.show{display:flex}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="logo">⬡ OTC·GRAPH</div>
+    <div class="bc">Mapping / <b>Order to Cash</b></div>
+  </div>
+  <div class="hdr-r">
+    <span class="pill pill-b" id="ncnt">294 nodes</span>
+    <span class="pill pill-g" id="ecnt">378 edges</span>
+    <button class="hbtn" onclick="openBroken()">⚠ Broken Flows</button>
+    <button class="hbtn" onclick="resetAll()">↺ Reset</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sb">
+    <div class="sbs">
+      <div class="sbt">Node Types</div>
+      <div id="legend"></div>
+    </div>
+    <div class="sbs">
+      <div class="sbt">Live Stats</div>
+      <div class="sg">
+        <div class="sc"><div class="sv" id="s-o">100</div><div class="sl">Orders</div></div>
+        <div class="sc"><div class="sv" id="s-d">75</div><div class="sl">Delivery</div></div>
+        <div class="sc"><div class="sv" id="s-b">63</div><div class="sl">Invoice</div></div>
+        <div class="sc"><div class="sv" id="s-p">14</div><div class="sl">Payment</div></div>
+      </div>
+    </div>
+    <div class="sbs">
+      <div class="sbt">Quick Queries</div>
+      <div class="sbtn-g">
+        <button class="sbtn" onclick="runQ('Which products have highest billing count?')"><span>📊</span> Top Products</button>
+        <button class="sbtn" onclick="runQ('Find incomplete order flows')"><span>🔍</span> Broken Flows</button>
+        <button class="sbtn" onclick="runQ('How many overdue invoices exist?')"><span>⚠️</span> Overdue</button>
+        <button class="sbtn" onclick="runQ('Find customers with most orders')"><span>👤</span> Top Customers</button>
+        <button class="sbtn" onclick="runQ('Trace full flow of billing document BILL00005')"><span>🔗</span> Trace Flow</button>
+        <button class="sbtn" onclick="runQ('Show delivered orders with no payment')"><span>💸</span> Revenue Leak</button>
+      </div>
+    </div>
+    <div class="sbs">
+      <div class="sbt">Filter by Type</div>
+      <div class="sbtn-g">
+        <button class="sbtn" id="fa" onclick="filterType('all')" style="color:var(--a);border-color:var(--a)">⬡ All Nodes</button>
+        <button class="sbtn" onclick="filterType('order')">📦 Orders only</button>
+        <button class="sbtn" onclick="filterType('billing')">🧾 Billing only</button>
+        <button class="sbtn" onclick="filterType('customer')">👤 Customers</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ga">
+    <svg id="gsvg"></svg>
+    <div class="tt" id="tt">
+      <div class="tt-type" id="tt-t"></div>
+      <div class="tt-id" id="tt-i"></div>
+      <div id="tt-a"></div>
+    </div>
+    <div class="gc">
+      <button class="cbtn" onclick="zi()" title="Zoom in">+</button>
+      <button class="cbtn" onclick="zo()" title="Zoom out">−</button>
+      <button class="cbtn" onclick="fit()" title="Fit">⊡</button>
+    </div>
+    <div class="sf" id="sf">⚠ <span id="sf-msg"></span></div>
+  </div>
+
+  <div class="rb" id="rb">
+    <button class="rbc" onclick="closeRB()">×</button>
+    <div class="rbi" id="rbi"></div>
+  </div>
+
+  <div class="cp">
+    <div class="ch">
+      <div class="chi">⬡</div>
+      <div><div class="ct">Graph Agent</div><div class="cs">Order to Cash</div></div>
+      <div class="cdot"></div>
+    </div>
+    <div class="cm" id="cm">
+      <div class="msg ai"><div class="mav">⬡</div>
+        <div class="mb"><div class="mn">OTC Agent</div>
+          <div class="bub">Hi! I can help you analyze the <strong>Order-to-Cash</strong> process.<br><br>Ask me about orders, deliveries, invoices, payments, or customers — I'll generate SQL, run it against the dataset, and highlight results on the graph.</div>
+        </div>
+      </div>
+    </div>
+    <div class="sugg">
+      <div class="sug" onclick="runQ('Which products have highest billing count?')">Top products</div>
+      <div class="sug" onclick="runQ('Show overdue invoices')">Overdue invoices</div>
+      <div class="sug" onclick="runQ('Find orders with no delivery')">Missing deliveries</div>
+    </div>
+    <div class="cia">
+      <textarea class="ci" id="ci" placeholder="Analyze anything..." rows="1"
+        onkeydown="hk(event)" oninput="ar(this)"></textarea>
+      <button class="sndbtn" id="sb" onclick="send()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- BROKEN MODAL -->
+<div class="mo" id="mo" onclick="cmo(event)">
+  <div class="md">
+    <div class="md-t">⚠ Broken Flow Detection <button class="md-close" onclick="cmo({target:document.getElementById('mo')})">×</button></div>
+    <div id="mc"></div>
+  </div>
+</div>
+
+<script>
+// ── DEMO DATA ────────────────────────────────────────────────────────────────
+const DEMO_NODES = [
+  {id:'C0001',type:'customer',label:'Acme Corp',attrs:{name:'Acme Corp',segment:'ENTERPRISE',country:'IN'}},
+  {id:'C0002',type:'customer',label:'TechStart',attrs:{name:'TechStart Ltd',segment:'SME',country:'US'}},
+  {id:'C0003',type:'customer',label:'GlobalCo',attrs:{name:'GlobalCo',segment:'WHOLESALE',country:'DE'}},
+  {id:'ORD00001',type:'order',label:'ORD-00001',attrs:{status:'DELIVERED',total_amount:'₹45,000',order_date:'2025-01-15'}},
+  {id:'ORD00002',type:'order',label:'ORD-00002',attrs:{status:'CONFIRMED',total_amount:'₹12,000',order_date:'2025-02-10'}},
+  {id:'ORD00003',type:'order',label:'ORD-00003',attrs:{status:'DELIVERED',total_amount:'₹88,500',order_date:'2025-01-22'}},
+  {id:'ORD00004',type:'order',label:'ORD-00004',attrs:{status:'OPEN',total_amount:'₹5,200',order_date:'2025-03-01'}},
+  {id:'ORD00005',type:'order',label:'ORD-00005',attrs:{status:'DELIVERED',total_amount:'₹34,000',order_date:'2025-01-30'}},
+  {id:'DEL00001',type:'delivery',label:'DEL-00001',attrs:{status:'DELIVERED',carrier:'FEDEX',ship_date:'2025-01-17'}},
+  {id:'DEL00003',type:'delivery',label:'DEL-00003',attrs:{status:'DELIVERED',carrier:'DHL',ship_date:'2025-01-24'}},
+  {id:'DEL00005',type:'delivery',label:'DEL-00005',attrs:{status:'SHIPPED',carrier:'DTDC',ship_date:'2025-02-02'}},
+  {id:'BILL00001',type:'billing',label:'BILL-0001',attrs:{status:'PAID',amount:'₹45,000',billing_type:'RV',due_date:'2025-02-17'}},
+  {id:'BILL00003',type:'billing',label:'BILL-0003',attrs:{status:'OVERDUE',amount:'₹88,500',billing_type:'RV',due_date:'2025-02-22'}},
+  {id:'BILL00005',type:'billing',label:'BILL-0005',attrs:{status:'OPEN',amount:'₹34,000',billing_type:'F2',due_date:'2025-03-02'}},
+  {id:'PAY00001',type:'payment',label:'PAY-0001',attrs:{method:'BANK_TRANSFER',amount:'₹45,000',payment_date:'2025-02-05'}},
+  {id:'P0001',type:'product',label:'Enterprise License',attrs:{name:'Enterprise License',category:'SOFTWARE',unit_price:'₹15,000'}},
+  {id:'P0002',type:'product',label:'Support Plan',attrs:{name:'Premium Support',category:'SERVICES',unit_price:'₹5,000'}},
+  {id:'P0003',type:'product',label:'Hardware Kit',attrs:{name:'IoT Hardware Kit',category:'ELECTRONICS',unit_price:'₹8,800'}},
+];
+
+const DEMO_EDGES = [
+  {s:'ORD00001',t:'C0001',r:'PLACED_BY'},{s:'ORD00002',t:'C0001',r:'PLACED_BY'},
+  {s:'ORD00003',t:'C0002',r:'PLACED_BY'},{s:'ORD00004',t:'C0003',r:'PLACED_BY'},
+  {s:'ORD00005',t:'C0002',r:'PLACED_BY'},
+  {s:'ORD00001',t:'DEL00001',r:'FULFILLED_BY'},{s:'ORD00003',t:'DEL00003',r:'FULFILLED_BY'},
+  {s:'ORD00005',t:'DEL00005',r:'FULFILLED_BY'},
+  {s:'ORD00001',t:'BILL00001',r:'BILLED_AS'},{s:'ORD00003',t:'BILL00003',r:'BILLED_AS'},
+  {s:'ORD00005',t:'BILL00005',r:'BILLED_AS'},
+  {s:'DEL00001',t:'BILL00001',r:'INVOICED_BY'},{s:'DEL00003',t:'BILL00003',r:'INVOICED_BY'},
+  {s:'BILL00001',t:'PAY00001',r:'SETTLED_BY'},
+  {s:'BILL00001',t:'C0001',r:'BILLED_TO'},{s:'BILL00003',t:'C0002',r:'BILLED_TO'},
+  {s:'BILL00005',t:'C0002',r:'BILLED_TO'},
+  {s:'ORD00001',t:'P0001',r:'CONTAINS'},{s:'ORD00003',t:'P0003',r:'CONTAINS'},
+  {s:'ORD00005',t:'P0002',r:'CONTAINS'},{s:'ORD00002',t:'P0001',r:'CONTAINS'},
+];
+
+const NC = {order:'#4f8ef7',delivery:'#00c4a0',billing:'#f0a500',payment:'#9b72f8',customer:'#ef4444',product:'#06c8e8'};
+const NI = {order:'📦',delivery:'🚚',billing:'🧾',payment:'💳',customer:'👤',product:'🏷️'};
+
+// ── DEMO QUERY ENGINE ────────────────────────────────────────────────────────
+const DEMO_RESPONSES = {
+  'billing count': {
+    answer: 'Based on the dataset, the top product by billing count is Enterprise License (P0001) with 2 linked billing documents totaling ₹57,000. Premium Support (P0002) follows with 1 billing document for ₹34,000.',
+    sql: `SELECT p.name, p.product_id, COUNT(b.billing_id) as billing_count,
+  SUM(b.amount) as total_billed
+FROM products p
+JOIN order_items oi ON p.product_id = oi.product_id
+JOIN billing_documents b ON oi.order_id = b.order_id
+GROUP BY p.product_id, p.name
+ORDER BY billing_count DESC
+LIMIT 10;`,
+    results:[{product:'Enterprise License',billing_count:2,total:'₹57,000'},{product:'Premium Support',billing_count:1,total:'₹34,000'},{product:'IoT Hardware Kit',billing_count:1,total:'₹88,500'}],
+    nodes:['P0001','P0002','P0003','BILL00001','BILL00003','BILL00005']
+  },
+  'incomplete': {
+    answer: 'Found 2 incomplete order flows: ORD00002 (Confirmed, ₹12,000 — C0001) has no delivery or billing document. ORD00004 (Open, ₹5,200 — C0003) also lacks any downstream processing. These represent potential revenue of ₹17,200 at risk.',
+    sql: `SELECT o.order_id, o.status, o.total_amount, c.name as customer
+FROM orders o
+LEFT JOIN billing_documents b ON o.order_id = b.order_id
+LEFT JOIN customers c ON o.customer_id = c.customer_id
+WHERE b.billing_id IS NULL AND o.status NOT IN ('CANCELLED')
+ORDER BY o.order_date DESC LIMIT 100;`,
+    results:[{order_id:'ORD00002',status:'CONFIRMED',amount:'₹12,000',customer:'Acme Corp'},{order_id:'ORD00004',status:'OPEN',amount:'₹5,200',customer:'GlobalCo'}],
+    nodes:['ORD00002','ORD00004']
+  },
+  'overdue': {
+    answer: 'There is 1 overdue invoice in the dataset: BILL00003 for ₹88,500 linked to customer TechStart Ltd (C0002), due 2025-02-22. No payment has been recorded. This is a critical revenue risk requiring immediate follow-up.',
+    sql: `SELECT COUNT(*) as overdue_count, SUM(amount) as total_overdue
+FROM billing_documents
+WHERE status = 'OVERDUE';`,
+    results:[{overdue_count:1,total_overdue:'₹88,500',oldest_due:'2025-02-22',customer:'TechStart Ltd'}],
+    nodes:['BILL00003','C0002']
+  },
+  'most orders': {
+    answer: 'Acme Corp (C0001) leads with 2 orders totaling ₹57,000. TechStart Ltd (C0002) follows with 2 orders worth ₹122,500. GlobalCo has 1 open order for ₹5,200.',
+    sql: `SELECT c.customer_id, c.name, c.segment, COUNT(o.order_id) as order_count,
+  SUM(o.total_amount) as total_value
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+GROUP BY c.customer_id ORDER BY order_count DESC LIMIT 20;`,
+    results:[{customer:'TechStart Ltd',order_count:2,total:'₹122,500'},{customer:'Acme Corp',order_count:2,total:'₹57,000'},{customer:'GlobalCo',order_count:1,total:'₹5,200'}],
+    nodes:['C0001','C0002','C0003']
+  },
+  'trace': {
+    answer: 'Billing BILL00005 (₹34,000) is linked to Order ORD00005 (DELIVERED, 2025-01-30) from customer TechStart Ltd. Delivery DEL00005 was shipped via DTDC on 2025-02-02. The invoice is currently OPEN with due date 2025-03-02 — no payment recorded yet.',
+    sql: `SELECT b.billing_id, b.status as billing_status, b.amount,
+  o.order_id, o.status as order_status, o.order_date,
+  d.delivery_id, d.status as delivery_status, d.actual_delivery_date,
+  p.payment_id, c.name as customer_name
+FROM billing_documents b
+LEFT JOIN orders o ON b.order_id = o.order_id
+LEFT JOIN deliveries d ON b.delivery_id = d.delivery_id
+LEFT JOIN payments p ON b.billing_id = p.billing_id
+LEFT JOIN customers c ON b.customer_id = c.customer_id
+WHERE b.billing_id = 'BILL00005' LIMIT 100;`,
+    results:[{billing_id:'BILL00005',billing_status:'OPEN',amount:'₹34,000',order_id:'ORD00005',order_status:'DELIVERED',delivery_id:'DEL00005',delivery_status:'SHIPPED',payment_id:null,customer:'TechStart Ltd'}],
+    nodes:['BILL00005','ORD00005','DEL00005','C0002','P0002']
+  },
+  'revenue leak': {
+    answer: '1 critical revenue leak detected: Order ORD00003 was DELIVERED to TechStart Ltd but billing document BILL00003 (₹88,500) is OVERDUE with no payment. Additionally ORD00005 has an OPEN invoice. Total at-risk revenue: ₹122,500.',
+    sql: `SELECT o.order_id, o.status, o.total_amount, b.billing_id, b.status as billing_status
+FROM orders o
+LEFT JOIN billing_documents b ON o.order_id = b.order_id
+LEFT JOIN payments p ON b.billing_id = p.billing_id
+WHERE o.status = 'DELIVERED' AND p.payment_id IS NULL
+ORDER BY o.total_amount DESC LIMIT 50;`,
+    results:[{order_id:'ORD00003',delivery:'DELIVERED',amount:'₹88,500',billing:'BILL00003',billing_status:'OVERDUE'},{order_id:'ORD00005',delivery:'DELIVERED',amount:'₹34,000',billing:'BILL00005',billing_status:'OPEN'}],
+    nodes:['ORD00003','ORD00005','BILL00003','BILL00005']
+  }
+};
+
+function matchResponse(q) {
+  const ql = q.toLowerCase();
+  if(ql.includes('billing count')||ql.includes('highest billing')||ql.includes('top product')) return DEMO_RESPONSES['billing count'];
+  if(ql.includes('incomplete')||ql.includes('broken')||ql.includes('no delivery')||ql.includes('missing')) return DEMO_RESPONSES['incomplete'];
+  if(ql.includes('overdue')) return DEMO_RESPONSES['overdue'];
+  if(ql.includes('most order')||ql.includes('top customer')) return DEMO_RESPONSES['most orders'];
+  if(ql.includes('trace')||ql.includes('flow of billing')||ql.includes('bill0000')) return DEMO_RESPONSES['trace'];
+  if(ql.includes('revenue')||ql.includes('no payment')||ql.includes('leak')) return DEMO_RESPONSES['revenue leak'];
+  return {
+    answer:`I searched the Order-to-Cash dataset for "${q}". In this demo environment I have sample data with 100 orders, 75 deliveries, 63 billing documents, 50 customers and 20 products. Connect the live backend (see README) to run real SQL queries against your data.`,
+    sql:`SELECT * FROM orders WHERE status != 'CANCELLED' LIMIT 20;`,
+    results:[{note:'Connect backend for live queries',sample:'100 orders, 63 billings, 14 payments in dataset'}],
+    nodes:[]
+  };
+}
+
+// ── D3 GRAPH ──────────────────────────────────────────────────────────────────
+let svg, g, zoom, sim, gdata = {nodes:[],edges:[]}, highlighted = new Set();
+
+function initGraph(){
+  const el = document.getElementById('gsvg');
+  const W = el.clientWidth, H = el.clientHeight;
+  svg = d3.select('#gsvg');
+  svg.selectAll('*').remove();
+  zoom = d3.zoom().scaleExtent([0.05,6]).on('zoom',e=>g.attr('transform',e.transform));
+  svg.call(zoom);
+  const defs = svg.append('defs');
+  Object.entries(NC).forEach(([type,color])=>{
+    defs.append('marker').attr('id','arr-'+type)
+      .attr('viewBox','0 -4 8 8').attr('refX',16).attr('refY',0)
+      .attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto')
+      .append('path').attr('d','M0,-4L8,0L0,4').attr('fill',color).attr('opacity',.55);
+  });
+  g = svg.append('g');
+  sim = d3.forceSimulation()
+    .force('link',d3.forceLink().id(d=>d.id).distance(90).strength(.45))
+    .force('charge',d3.forceManyBody().strength(-260))
+    .force('center',d3.forceCenter(W/2,H/2))
+    .force('col',d3.forceCollide().radius(22));
+}
+
+function renderGraph(nodes, edges){
+  gdata = {nodes,edges};
+  g.selectAll('*').remove();
+  const ns = nodes.map(n=>({...n}));
+  const es = edges.map(e=>({...e,source:e.s||e.source,target:e.t||e.target}));
+
+  const link = g.append('g').selectAll('line').data(es).enter().append('line')
+    .attr('stroke',d=>{const sn=ns.find(n=>n.id===d.source||n.id===d.source?.id);return NC[sn?.type]||'#334155'})
+    .attr('stroke-width',1.1).attr('stroke-opacity',.3)
+    .attr('marker-end',d=>{const sn=ns.find(n=>n.id===d.source);return`url(#arr-${sn?.type||'order'})`});
+
+  const node = g.append('g').selectAll('g').data(ns).enter().append('g')
+    .attr('class','gnode').style('cursor','pointer')
+    .call(d3.drag().on('start',dgs).on('drag',dgd).on('end',dge))
+    .on('mouseover',showTT).on('mousemove',moveTT).on('mouseout',hideTT)
+    .on('click',onNC);
+
+  node.append('circle').attr('r',11)
+    .attr('fill',d=>NC[d.type]||'#546e8a').attr('fill-opacity',.14)
+    .attr('stroke',d=>NC[d.type]||'#546e8a').attr('stroke-width',1.6);
+
+  node.append('text').attr('text-anchor','middle').attr('dominant-baseline','central')
+    .attr('font-size',9).text(d=>NI[d.type]||'●');
+
+  node.append('text').attr('y',18).attr('text-anchor','middle')
+    .attr('fill','#546e8a').attr('font-size',8).attr('font-family','IBM Plex Mono')
+    .text(d=>(d.label||d.id||'').slice(-8));
+
+  sim.nodes(ns).on('tick',()=>{
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    node.attr('transform',d=>`translate(${d.x},${d.y})`);
+  });
+  sim.force('link').links(es);
+  sim.alpha(1).restart();
+  document.getElementById('ncnt').textContent = ns.length+' nodes';
+  document.getElementById('ecnt').textContent = es.length+' edges';
+}
+
+function hlNodes(ids){
+  if(!ids||!ids.length)return;
+  highlighted = new Set(ids);
+  g.selectAll('.gnode circle')
+    .attr('fill-opacity',d=>highlighted.has(d.id)?.82:.06)
+    .attr('stroke-width',d=>highlighted.has(d.id)?3:1.4)
+    .attr('r',d=>highlighted.has(d.id)?15:11);
+  g.selectAll('line')
+    .attr('stroke-opacity',d=>{
+      const si=d.source?.id||d.source, ti=d.target?.id||d.target;
+      return(highlighted.has(si)||highlighted.has(ti))?.65:.06;
+    }).attr('stroke-width',d=>{
+      const si=d.source?.id||d.source, ti=d.target?.id||d.target;
+      return(highlighted.has(si)||highlighted.has(ti))?2.2:1;
+    });
+}
+
+function resetAll(){
+  highlighted.clear();
+  g.selectAll('.gnode circle').attr('fill-opacity',.14).attr('stroke-width',1.6).attr('r',11);
+  g.selectAll('line').attr('stroke-opacity',.3).attr('stroke-width',1.1);
+}
+
+function filterType(type){
+  if(type==='all'){resetAll();return;}
+  g.selectAll('.gnode').attr('opacity',d=>d.type===type?1:.1);
+  g.selectAll('line').attr('stroke-opacity',d=>{
+    const sn=gdata.nodes.find(n=>n.id===(d.source?.id||d.source));
+    const tn=gdata.nodes.find(n=>n.id===(d.target?.id||d.target));
+    return(sn?.type===type||tn?.type===type)?.55:.03;
+  });
+}
+
+// tooltip
+function showTT(ev,d){
+  const tt=document.getElementById('tt');
+  document.getElementById('tt-t').textContent=(d.type||'').toUpperCase();
+  document.getElementById('tt-i').textContent=d.label||d.id;
+  const attrs=d.attrs||d.attributes||{};
+  document.getElementById('tt-a').innerHTML=Object.keys(attrs).slice(0,5).map(k=>
+    `<div class="tt-row"><span class="tt-k">${k}</span><span class="tt-v">${attrs[k]??'—'}</span></div>`
+  ).join('')||'<div class="tt-row"><span class="tt-k">Click to expand</span></div>';
+  tt.style.left=(ev.clientX+14)+'px';tt.style.top=(ev.clientY-14)+'px';
+  tt.classList.add('show');
+}
+function moveTT(ev){const tt=document.getElementById('tt');tt.style.left=(ev.clientX+14)+'px';tt.style.top=(ev.clientY-14)+'px';}
+function hideTT(){document.getElementById('tt').classList.remove('show');}
+
+function onNC(ev,d){
+  ev.stopPropagation();
+  hlNodes([d.id]);
+  runQ(`Tell me about ${d.type} ${d.id}`);
+}
+
+// drag
+function dgs(ev,d){if(!ev.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y;}
+function dgd(ev,d){d.fx=ev.x;d.fy=ev.y;}
+function dge(ev,d){if(!ev.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}
+// zoom
+function zi(){svg.transition().call(zoom.scaleBy,1.45);}
+function zo(){svg.transition().call(zoom.scaleBy,.7);}
+function fit(){svg.transition().call(zoom.transform,d3.zoomIdentity);}
+
+// ── LEGEND ────────────────────────────────────────────────────────────────────
+function buildLegend(){
+  document.getElementById('legend').innerHTML=
+    Object.entries(NC).map(([t,c])=>
+      `<div class="leg-item" onclick="filterType('${t}')">
+         <div class="leg-dot" style="background:${c}"></div>
+         <span>${NI[t]||'●'} ${t.charAt(0).toUpperCase()+t.slice(1)}</span>
+       </div>`
+    ).join('');
+}
+
+// ── BROKEN FLOWS MODAL ────────────────────────────────────────────────────────
+const BROKEN = [
+  {cls:'c',sev:'CRITICAL',col:'#ef4444',msg:'Order ORD00002 confirmed (₹12,000) — no delivery or billing document created',nid:'ORD00002'},
+  {cls:'c',sev:'CRITICAL',col:'#ef4444',msg:'Order ORD00004 open (₹5,200) — no downstream processing for 23 days',nid:'ORD00004'},
+  {cls:'w',sev:'WARNING',col:'#f0a500',msg:'Billing BILL00003 overdue since 2025-02-22 (₹88,500) — no payment received',nid:'BILL00003'},
+  {cls:'w',sev:'WARNING',col:'#f0a500',msg:'Billing BILL00005 open (₹34,000) — due 2025-03-02, approaching deadline',nid:'BILL00005'},
+  {cls:'i',sev:'INFO',col:'#4f8ef7',msg:'Delivery DEL00005 status SHIPPED — actual delivery date not yet recorded',nid:'DEL00005'},
+];
+
+function openBroken(){
+  document.getElementById('mc').innerHTML=BROKEN.map(b=>
+    `<div class="bi ${b.cls}" onclick="hlNodes(['${b.nid}'])" style="cursor:pointer">
+      <div class="bisev" style="color:${b.col}">${b.sev} — ${b.nid}</div>
+      <div class="bimsg">${b.msg}</div>
+    </div>`
+  ).join('');
+  document.getElementById('mo').classList.add('open');
+}
+function cmo(ev){if(ev.target===document.getElementById('mo'))document.getElementById('mo').classList.remove('open');}
+document.querySelector('.md-close')?.addEventListener('click',()=>document.getElementById('mo').classList.remove('open'));
+
+// ── CHAT ──────────────────────────────────────────────────────────────────────
+function hk(ev){if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();send();}}
+function ar(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,90)+'px';}
+
+function send(){
+  const ci=document.getElementById('ci');
+  const q=ci.value.trim();if(!q)return;
+  ci.value='';ci.style.height='auto';
+  runQ(q);
+}
+
+function runQ(q){
+  addMsg('u',q);
+  const tid=addTyping();
+  document.getElementById('sb').disabled=true;
+  setTimeout(()=>{
+    removeTyping(tid);
+    const r=matchResponse(q);
+    addMsg('ai',r.answer,r.sql,r.results,r.nodes);
+    if(r.nodes?.length) hlNodes(r.nodes);
+    if(r.results?.length) showRB(r.results);
+    document.getElementById('sb').disabled=false;
+  },900+Math.random()*600);
+}
+
+function addMsg(role,text,sql,results,nodes){
+  const cm=document.getElementById('cm');
+  const d=document.createElement('div');
+  d.className='msg '+role;
+  const sqlBlk=sql?`<div class="sql-blk"><div class="sql-lbl">GENERATED SQL</div>${esc(sql)}</div>`:'';
+  const rBadge=(results?.length)?`<div class="rbadge" onclick="showRB(window._lr)">⊞ ${results.length} row${results.length>1?'s':''} — view table</div>`:'';
+  d.innerHTML=`<div class="mav">${role==='u'?'👤':'⬡'}</div>
+  <div class="mb"><div class="mn">${role==='u'?'You':'OTC Agent'}</div>
+  <div class="bub">${esc(text)}</div>${sqlBlk}${rBadge}</div>`;
+  if(results?.length) window._lr=results;
+  cm.appendChild(d);
+  cm.scrollTop=cm.scrollHeight;
+}
+
+function addTyping(){
+  const cm=document.getElementById('cm');
+  const id='t'+Date.now();
+  const d=document.createElement('div');
+  d.className='msg ai';d.id=id;
+  d.innerHTML=`<div class="mav">⬡</div><div class="mb"><div class="mn">OTC Agent</div>
+  <div class="bub"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div></div></div>`;
+  cm.appendChild(d);cm.scrollTop=cm.scrollHeight;return id;
+}
+function removeTyping(id){document.getElementById(id)?.remove();}
+
+function showRB(rows){
+  if(!rows?.length)return;
+  const rb=document.getElementById('rb'),ri=document.getElementById('rbi');
+  const cols=Object.keys(rows[0]);
+  ri.innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+  <tbody>${rows.slice(0,50).map(r=>`<tr>${cols.map(c=>`<td>${r[c]??'—'}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  rb.classList.add('open');
+}
+function closeRB(){document.getElementById('rb').classList.remove('open');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  buildLegend();
+  initGraph();
+  renderGraph(DEMO_NODES, DEMO_EDGES);
+});
+window.addEventListener('resize',()=>{initGraph();renderGraph(DEMO_NODES,DEMO_EDGES);});
+</script>
+</body>
+</html>
