@@ -5,7 +5,7 @@ Run: uvicorn main:app --reload --port 8000
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 import sqlite3, os, uvicorn
@@ -29,6 +29,14 @@ app.add_middleware(
 # Lazy-loaded singletons
 _query_engine = None
 _graph_api = None
+
+FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "frontend.html")
+
+
+def _frontend_html() -> str:
+    # Serve the single-page UI from the same backend so public tunnels work reliably.
+    with open(FRONTEND_PATH, "r", encoding="utf-8") as f:
+        return f.read()
 
 def get_query_engine():
     global _query_engine
@@ -123,6 +131,22 @@ async def health():
         return {"status": "ok", "db": DB_PATH, "counts": counts}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+
+@app.get("/")
+async def root():
+    try:
+        return HTMLResponse(_frontend_html())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Frontend missing: {e}")
+
+
+@app.get("/frontend.html")
+async def frontend():
+    try:
+        return HTMLResponse(_frontend_html())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Frontend missing: {e}")
 
 
 if __name__ == "__main__":

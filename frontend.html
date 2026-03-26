@@ -250,7 +250,13 @@ tr:hover td{background:var(--s2)}
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-const API = 'https://hip-results-sin.loca.lt';
+// Frontend can run in 2 modes:
+// 1) Live mode: provide `?api=<baseUrl>` (e.g. https://your-tunnel.loca.lt) or serve from same backend origin.
+// 2) Demo mode: backend offline; we render a small built-in dataset (no tunnel / no password).
+const API = new URLSearchParams(location.search).get('api') || '';
+const DEMO_FORCE = new URLSearchParams(location.search).get('demo') === '1';
+let backendOk = false;
+let demoLoaded = false;
 const SID = 'sess_' + Math.random().toString(36).slice(2, 9);
 
 const NC = {
@@ -265,6 +271,86 @@ const NI = {
 };
 
 let svg, g, zoom, sim, gdata = {nodes:[], edges:[]}, hl = new Set();
+
+// ── DEMO DATA ────────────────────────────────────────────────────────────────
+const DEMO_GRAPH = {
+  nodes: [
+    {id:'ORD00010', type:'order', label:'ORD00010', attributes:{status:'DELIVERED', total_amount:45000, currency:'INR'}},
+    {id:'C00010', type:'customer', label:'C00010', attributes:{name:'Customer 10'}},
+    {id:'DEL00010', type:'delivery', label:'DEL00010', attributes:{status:'DELIVERED'}},
+    {id:'BILL00010', type:'billing', label:'BILL00010', attributes:{status:'OVERDUE', amount:45000, currency:'INR'}},
+    {id:'PAY00010', type:'payment', label:'PAY00010', attributes:{method:'BANK_TRANSFER', amount:45000, currency:'INR'}},
+    {id:'ORD00011', type:'order', label:'ORD00011', attributes:{status:'DELIVERED', total_amount:120000, currency:'INR'}},
+    {id:'DEL00011', type:'delivery', label:'DEL00011', attributes:{status:'DELIVERED'}},
+    {id:'BILL00011', type:'billing', label:'BILL00011', attributes:{status:'OPEN', amount:120000, currency:'INR'}},
+    {id:'C00011', type:'customer', label:'C00011', attributes:{name:'Customer 11'}},
+    {id:'PAY00011', type:'payment', label:'PAY00011', attributes:{method:'UPI', amount:120000, currency:'INR'}},
+    {id:'MAT00001', type:'material', label:'MAT00001', attributes:{materialGroup:'ELECTRONICS'}},
+    {id:'PLT00001', type:'plant', label:'PLT00001', attributes:{plantName:'Plant 1'}},
+  ],
+  edges: [
+    {s:'ORD00010', t:'C00010', rel:'PLACED_BY'},
+    {s:'ORD00010', t:'DEL00010', rel:'FULFILLED_BY'},
+    {s:'ORD00010', t:'BILL00010', rel:'BILLED_AS'},
+    {s:'DEL00010', t:'BILL00010', rel:'INVOICED_BY'},
+    {s:'BILL00010', t:'PAY00010', rel:'SETTLED_BY'},
+    {s:'BILL00010', t:'C00010', rel:'BILLED_TO'},
+
+    {s:'ORD00011', t:'C00011', rel:'PLACED_BY'},
+    {s:'ORD00011', t:'DEL00011', rel:'FULFILLED_BY'},
+    {s:'ORD00011', t:'BILL00011', rel:'BILLED_AS'},
+    {s:'DEL00011', t:'BILL00011', rel:'INVOICED_BY'},
+    {s:'BILL00011', t:'PAY00011', rel:'SETTLED_BY'},
+    {s:'BILL00011', t:'C00011', rel:'BILLED_TO'},
+
+    {s:'ORD00010', t:'MAT00001', rel:'CONTAINS_MATERIAL'},
+    {s:'MAT00001', t:'PLT00001', rel:'STORED_AT'},
+  ]
+};
+
+function loadDemoGraph() {
+  renderGraph(DEMO_GRAPH.nodes, DEMO_GRAPH.edges);
+  demoLoaded = true;
+  // In demo mode, we still show a connected dot to indicate the UI is interactive.
+  setStatus(false);
+  document.getElementById('sdot').classList.remove('ok');
+  document.getElementById('stext').textContent = 'Demo mode (backend not required)';
+}
+
+function demoAnswer(q) {
+  const ql = (q || '').toLowerCase();
+  // Simple keyword-based demo responses for the chat.
+  if (ql.includes('overdue')) {
+    return {
+      answer: 'Demo: Billing `BILL00010` is marked as OVERDUE for amount 45000 INR.',
+      sql: null,
+      results: [{billing_id:'BILL00010', status:'OVERDUE', amount:45000, currency:'INR'}],
+      highlighted_nodes: [{type:'billing', id:'BILL00010'}],
+    };
+  }
+  if (ql.includes('delivered') && (ql.includes('no billing') || ql.includes('unbilled'))) {
+    return {
+      answer: 'Demo: In the sample data, delivered orders are linked to billing documents.',
+      sql: null,
+      results: [],
+      highlighted_nodes: [],
+    };
+  }
+  if (ql.includes('payments') || ql.includes('paid')) {
+    return {
+      answer: 'Demo: `BILL00010` is settled by payment `PAY00010` (BANK_TRANSFER, 45000 INR).',
+      sql: null,
+      results: [{billing_id:'BILL00010', payment_id:'PAY00010', method:'BANK_TRANSFER', amount:45000, currency:'INR'}],
+      highlighted_nodes: [{type:'payment', id:'PAY00010'}],
+    };
+  }
+  return {
+    answer: 'Demo mode is active. This UI works without a backend. When you are ready for the live demo, add `?api=<your_api_base>` to connect.',
+    sql: null,
+    results: [],
+    highlighted_nodes: [],
+  };
+}
 
 // ── GRAPH INIT ────────────────────────────────────────────────────────────────
 function initGraph() {
@@ -434,19 +520,26 @@ function buildLegend() {
 // ── BACKEND LOAD ──────────────────────────────────────────────────────────────
 async function loadGraph() {
   try {
+    if (DEMO_FORCE) throw new Error('demo forced');
     const res = await fetch(API + '/graph/full');
     if (!res.ok) throw new Error('not ok');
     const data = await res.json();
     renderGraph(data.nodes || [], data.edges || []);
     setStatus(true);
+    backendOk = true;
   } catch (e) {
     setStatus(false);
-    addMsg('ai', '⚠ Backend not reachable at <code>localhost:8000</code>.<br><br>Start it with:<br><code>uvicorn main:app --reload --port 8000</code>', null, [], []);
+    backendOk = false;
+    if (!demoLoaded) {
+      loadDemoGraph();
+      addMsg('ai', 'Running in demo mode (backend offline). You can still click nodes and try sample questions.', null, [], []);
+    }
   }
 }
 
 async function loadHealth() {
   try {
+    if (DEMO_FORCE) throw new Error('demo forced');
     const res = await fetch(API + '/health');
     const data = await res.json();
     const c = data.counts || {};
@@ -513,6 +606,17 @@ function ask(q) {
   addMsg('u', q);
   const tid = addTyping();
   document.getElementById('sndbtn').disabled = true;
+
+  // If we already know backend is offline (or demo forced), answer locally.
+  if (DEMO_FORCE || !backendOk) {
+    const d = demoAnswer(q);
+    removeTyping(tid);
+    addMsg('ai', d.answer, d.sql, d.results, d.highlighted_nodes);
+    if (d.highlighted_nodes?.length) hlNodes(d.highlighted_nodes.map(n => n.id));
+    if (d.results?.length) showRB(d.results);
+    document.getElementById('sndbtn').disabled = false;
+    return;
+  }
 
   fetch(API + '/query', {
     method: 'POST',
